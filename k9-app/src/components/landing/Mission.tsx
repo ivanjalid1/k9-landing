@@ -6,8 +6,8 @@ export function Mission() {
       {/* Background image */}
       <div className="absolute inset-0 z-0">
         <img
-          src="https://images.unsplash.com/photo-1518717758536-85ae29035b6d?w=1600&q=80"
-          alt="Dog looking up warmly"
+          src="https://images.unsplash.com/photo-1548199973-03cce0bbc87b?w=1600&q=80"
+          alt="Two dogs running happily together"
           className="w-full h-full object-cover brightness-[0.2]"
         />
       </div>

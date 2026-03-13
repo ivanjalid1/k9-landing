@@ -10,7 +10,7 @@ export function Hero() {
         />
         {/* Gradient overlays */}
         <div className="absolute inset-0 bg-gradient-to-r from-[rgba(10,10,10,0.92)] via-[rgba(10,10,10,0.6)] to-[rgba(10,10,10,0.15)]" />
-        <div className="absolute inset-0 bg-gradient-to-b from-[rgba(10,10,10,0.3)] via-transparent to-[rgba(10,10,10,0.8)]" />
+        <div className="absolute inset-0 bg-gradient-to-b from-[rgba(10,10,10,0.3)] via-transparent to-[#0a0a0a]" />
         {/* Noise */}
         <div
           className="absolute inset-0 z-[2] opacity-[0.03]"

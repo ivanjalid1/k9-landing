@@ -51,10 +51,7 @@ const stats = [
 
 export function TrustBar() {
   return (
-    <section className="relative bg-[#111] border-t border-b border-white/5 py-12 overflow-hidden">
-      {/* Glow */}
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-full bg-[radial-gradient(ellipse,rgba(232,168,56,0.15)_0%,transparent_70%)] pointer-events-none" />
-
+    <section className="relative bg-[#0a0a0a] py-12 overflow-hidden">
       <div className="max-w-[1240px] mx-auto px-[clamp(20px,5vw,60px)] relative z-[1]">
         <div className="grid grid-cols-4 gap-10 text-center max-md:grid-cols-2 max-md:gap-7 max-[480px]:gap-5">
           {stats.map((stat, i) => (
