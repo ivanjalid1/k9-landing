@@ -50,6 +50,14 @@ body {
   font-family: var(--font-body);
   background-color: var(--color-cream);
   color: var(--color-warm-700);
+  margin: 0;
+  padding: 0;
+}
+
+/* Dark background for landing pages — prevents any light bleed on overscroll/notch */
+html:has(#hero) body,
+html:has(#hero) {
+  background-color: #0a0a0a;
 }
 
 /* ═══ SIGNATURE CANVAS ═══ */

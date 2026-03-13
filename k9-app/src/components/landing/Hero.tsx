@@ -1,15 +1,16 @@
 export function Hero() {
   return (
-    <section id="hero" className="relative min-h-screen flex items-center overflow-hidden bg-[#0a0a0a]">
+    <section id="hero" className="relative min-h-[100svh] max-md:min-h-0 max-md:h-[100svh] flex items-center max-md:items-center overflow-hidden bg-[#0a0a0a]">
       {/* Background image */}
       <div className="absolute inset-0 z-[1]">
         <img
           src="https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=1600&q=80"
           alt="Dog in nature"
-          className="w-full h-full object-cover object-[center_20%]"
+          className="w-full h-full object-cover object-[center_20%] max-md:object-[center_30%]"
         />
         {/* Gradient overlays */}
-        <div className="absolute inset-0 bg-gradient-to-r from-[rgba(10,10,10,0.92)] via-[rgba(10,10,10,0.6)] to-[rgba(10,10,10,0.15)]" />
+        <div className="absolute inset-0 bg-gradient-to-r from-[rgba(10,10,10,0.92)] via-[rgba(10,10,10,0.6)] to-[rgba(10,10,10,0.15)] max-md:bg-none" />
+        <div className="absolute inset-0 max-md:bg-gradient-to-t max-md:from-[#0a0a0a] max-md:via-[rgba(10,10,10,0.6)] max-md:to-transparent" />
         <div className="absolute inset-0 bg-gradient-to-b from-[rgba(10,10,10,0.3)] via-transparent to-[#0a0a0a]" />
         {/* Noise */}
         <div
@@ -22,7 +23,7 @@ export function Hero() {
       </div>
 
       {/* Content */}
-      <div className="relative z-[3] w-full max-w-[1240px] mx-auto px-[clamp(20px,5vw,60px)] pt-[120px] max-md:pt-[100px]">
+      <div className="relative z-[3] w-full max-w-[1240px] mx-auto px-[clamp(20px,5vw,60px)] max-md:px-8 pt-[120px] max-md:pt-[60px]">
         <p className="text-[clamp(0.9rem,1.5vw,1.15rem)] font-normal italic tracking-[0.2em] uppercase text-white/70 mb-3 opacity-0 -translate-x-10 max-md:-translate-x-4 animate-[fadeLeft_0.8s_0.3s_cubic-bezier(0.16,1,0.3,1)_forwards]">
           Your Dog in Motion
         </p>

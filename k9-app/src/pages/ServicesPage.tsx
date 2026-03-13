@@ -10,26 +10,27 @@ export function ServicesPage() {
     <div className="bg-[#0a0a0a] text-white overflow-x-hidden">
       <Nav />
       {/* Hero — full viewport, left-aligned */}
-      <section className="relative min-h-[100vh] max-md:min-h-[85vh] flex items-center overflow-hidden">
+      <section className="relative min-h-[100svh] max-md:min-h-0 max-md:h-[100svh] flex items-center max-md:items-center overflow-hidden">
         {/* Background image */}
         <div className="absolute inset-0 z-0">
           <img
             src="https://images.unsplash.com/photo-1548199973-03cce0bbc87b?w=1600&q=80"
             alt="Dogs running together in park"
-            className="w-full h-full object-cover scale-105 max-md:object-[center_30%]"
+            className="w-full h-full object-cover scale-105 max-md:scale-100 max-md:object-[center_30%]"
           />
         </div>
-        <div className="absolute inset-0 z-[1] bg-gradient-to-r from-[rgba(10,10,10,0.88)] via-[rgba(10,10,10,0.55)] to-[rgba(10,10,10,0.2)] max-md:bg-gradient-to-t max-md:from-[rgba(10,10,10,0.9)] max-md:via-[rgba(10,10,10,0.6)] max-md:to-[rgba(10,10,10,0.3)]" />
-        <div className="absolute inset-0 z-[1]" style={{ background: 'linear-gradient(180deg, rgba(10,10,10,0.3) 0%, transparent 30%, transparent 60%, #0a0a0a 100%)' }} />
+        <div className="absolute inset-0 z-[1] bg-gradient-to-r from-[rgba(10,10,10,0.88)] via-[rgba(10,10,10,0.55)] to-[rgba(10,10,10,0.2)] max-md:bg-none" />
+        <div className="absolute inset-0 z-[1] max-md:bg-gradient-to-t max-md:from-[#0a0a0a] max-md:via-[rgba(10,10,10,0.6)] max-md:to-transparent" />
+        <div className="absolute inset-0 z-[1]" style={{ background: 'linear-gradient(180deg, rgba(10,10,10,0.3) 0%, transparent 30%, transparent 50%, #0a0a0a 100%)' }} />
 
-        <div className="relative z-[2] w-full max-w-[1240px] mx-auto px-[clamp(20px,5vw,60px)] pt-[120px] max-md:pt-[100px] max-md:pb-[60px]">
+        <div className="relative z-[2] w-full max-w-[1240px] mx-auto px-[clamp(20px,5vw,60px)] max-md:px-8 pt-[120px] max-md:pt-[60px]">
           <div className="text-[0.82rem] max-md:text-[0.72rem] font-semibold tracking-[0.3em] uppercase text-[#E8A838] mb-5 max-md:mb-3 opacity-0 -translate-x-10 max-md:-translate-x-4 animate-[fadeLeft_0.8s_0.2s_cubic-bezier(0.16,1,0.3,1)_forwards]">
             What We Offer
           </div>
           <h1 className="font-[family-name:var(--font-landing-display)] text-[clamp(3.5rem,12vw,8rem)] leading-[0.9] tracking-tight text-white mb-6 max-md:mb-4 opacity-0 -translate-x-12 max-md:-translate-x-5 animate-[fadeLeft_0.8s_0.4s_cubic-bezier(0.16,1,0.3,1)_forwards]">
             OUR<br />SERVICES
           </h1>
-          <p className="text-[1.15rem] max-md:text-[0.95rem] font-light text-white/65 max-w-[540px] leading-[1.7] mb-10 max-md:mb-7 opacity-0 -translate-x-10 max-md:-translate-x-4 animate-[fadeLeft_0.8s_0.6s_cubic-bezier(0.16,1,0.3,1)_forwards]">
+          <p className="text-[1.15rem] max-md:text-[0.95rem] font-light text-white/65 max-w-[540px] max-md:max-w-full leading-[1.7] mb-10 max-md:mb-7 opacity-0 -translate-x-10 max-md:-translate-x-4 animate-[fadeLeft_0.8s_0.6s_cubic-bezier(0.16,1,0.3,1)_forwards]">
             Professional pet care tailored to your furry friend's unique needs — from daily walks to overnight house sitting.
           </p>
           <div className="opacity-0 -translate-x-8 max-md:-translate-x-3 animate-[fadeLeft_0.8s_0.8s_cubic-bezier(0.16,1,0.3,1)_forwards]">

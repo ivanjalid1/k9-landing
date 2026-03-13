@@ -21,6 +21,7 @@ export function ContactPage() {
   })
   const [status, setStatus] = useState('idle') // idle | sending | sent | error
   const [errorMsg, setErrorMsg] = useState('')
+  const [refNumber, setRefNumber] = useState('')
 
   const update = (field: string, value: string) => setForm(prev => ({ ...prev, [field]: value }))
 
@@ -36,7 +37,8 @@ export function ContactPage() {
     setErrorMsg('')
 
     try {
-      const res = await fetch('/api/contact.php', {
+      const apiUrl = import.meta.env.VITE_CONTACT_API_URL || '/api/contact.php'
+      const res = await fetch(apiUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(form),
@@ -44,8 +46,8 @@ export function ContactPage() {
       const data = await res.json()
 
       if (data.success) {
+        setRefNumber(data.ref || '')
         setStatus('sent')
-        setForm({ name: '', email: '', phone: '', service: '', message: '' })
       } else {
         setErrorMsg(data.error || 'Something went wrong. Please try again.')
         setStatus('error')
@@ -135,22 +137,85 @@ export function ContactPage() {
               </div>
 
               {status === 'sent' ? (
-                <div className="bg-[#151515] border border-[rgba(232,168,56,0.3)] p-12 text-center animate-[fadeUp_0.5s_ease-out]">
-                  <div className="w-16 h-16 mx-auto mb-6 rounded-full bg-[rgba(232,168,56,0.15)] flex items-center justify-center">
-                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#E8A838" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                <div className="bg-[#151515] border border-[rgba(232,168,56,0.3)] p-12 max-md:p-8 animate-[fadeUp_0.5s_ease-out]">
+                  {/* Success icon */}
+                  <div className="text-center mb-8">
+                    <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-[rgba(232,168,56,0.12)] border border-[rgba(232,168,56,0.25)] flex items-center justify-center">
+                      <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#E8A838" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                    </div>
+                    <h3 className="font-[family-name:var(--font-landing-display)] text-[2rem] tracking-[0.08em] text-white mb-2">
+                      MESSAGE SENT
+                    </h3>
+                    <p className="text-[0.92rem] font-light text-white/50">
+                      Thank you, <span className="text-white/80 font-medium">{form.name}</span>! We'll get back to you within 24 hours.
+                    </p>
                   </div>
-                  <h3 className="font-[family-name:var(--font-landing-display)] text-[2rem] tracking-[0.08em] text-white mb-3">
-                    MESSAGE SENT
-                  </h3>
-                  <p className="text-[0.95rem] font-light text-white/50 mb-8">
-                    Thank you! We'll get back to you within 24 hours.
-                  </p>
-                  <button
-                    onClick={() => setStatus('idle')}
-                    className="text-[0.82rem] font-semibold tracking-[0.1em] uppercase text-[#E8A838] hover:text-[#F0B840] transition-colors"
-                  >
-                    Send Another Message
-                  </button>
+
+                  {/* Reference card */}
+                  {refNumber && (
+                    <div className="bg-[rgba(232,168,56,0.06)] border border-[rgba(232,168,56,0.2)] p-6 mb-6">
+                      <div className="text-[0.7rem] font-semibold tracking-[0.2em] uppercase text-[#E8A838]/60 mb-1">Reference Number</div>
+                      <div className="text-[1.4rem] font-bold tracking-[0.08em] text-[#E8A838]">{refNumber}</div>
+                    </div>
+                  )}
+
+                  {/* Summary */}
+                  <div className="bg-[#0a0a0a] border border-white/10 p-5 mb-6">
+                    <div className="text-[0.7rem] font-semibold tracking-[0.2em] uppercase text-white/40 mb-4">Your Inquiry</div>
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-center">
+                        <span className="text-[0.82rem] text-white/50">Service</span>
+                        <span className="text-[0.85rem] text-white/80 font-medium bg-[rgba(232,168,56,0.1)] px-3 py-1 border border-[rgba(232,168,56,0.15)]">{form.service}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-[0.82rem] text-white/50">Email</span>
+                        <span className="text-[0.85rem] text-white/80">{form.email}</span>
+                      </div>
+                      {form.phone && (
+                        <div className="flex justify-between items-center">
+                          <span className="text-[0.82rem] text-white/50">Phone</span>
+                          <span className="text-[0.85rem] text-white/80">{form.phone}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* What's next */}
+                  <div className="mb-8">
+                    <div className="text-[0.78rem] font-semibold tracking-[0.12em] uppercase text-white/60 mb-4">What happens next?</div>
+                    <div className="space-y-3">
+                      {[
+                        'Our team reviews your message',
+                        'We respond with personalized info about your service',
+                        'We schedule a consultation or next steps together!',
+                      ].map((step, i) => (
+                        <div key={i} className="flex items-center gap-3">
+                          <div className="w-7 h-7 flex-shrink-0 flex items-center justify-center bg-[#E8A838] text-[#0a0a0a] text-[0.75rem] font-bold rounded-full">
+                            {i + 1}
+                          </div>
+                          <span className="text-[0.88rem] text-white/60">{step}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Confirmation email note */}
+                  <div className="bg-[rgba(232,168,56,0.06)] border border-[rgba(232,168,56,0.15)] px-5 py-4 mb-6 flex items-start gap-3">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#E8A838" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0 mt-0.5"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                    <p className="text-[0.82rem] text-white/50 leading-relaxed">
+                      A confirmation email has been sent to <span className="text-white/70 font-medium">{form.email}</span>. Please check your inbox (and spam folder).
+                    </p>
+                  </div>
+
+                  {/* Send another */}
+                  <div className="text-center">
+                    <button
+                      onClick={() => { setStatus('idle'); setForm({ name: '', email: '', phone: '', service: '', message: '' }); setRefNumber(''); }}
+                      className="text-[0.82rem] font-semibold tracking-[0.1em] uppercase text-[#E8A838] hover:text-[#F0B840] transition-colors"
+                    >
+                      Send Another Message
+                    </button>
+                  </div>
                 </div>
               ) : (
                 <form onSubmit={handleSubmit} className="bg-[#151515] border border-white/10 p-10 max-md:p-7">
