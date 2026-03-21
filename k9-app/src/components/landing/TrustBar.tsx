@@ -51,20 +51,24 @@ const stats = [
 
 export function TrustBar() {
   return (
-    <section className="relative bg-[#0a0a0a] py-12 overflow-hidden">
+    <section className="relative bg-gradient-to-r from-[#faf5ea] via-[#f5edda] to-[#faf5ea] py-14 overflow-hidden">
+      {/* Subtle green accent dots */}
+      <div className="absolute top-1/2 left-[10%] -translate-y-1/2 w-[200px] h-[200px] bg-[radial-gradient(circle,rgba(90,158,120,0.08)_0%,transparent_70%)] pointer-events-none" />
+      <div className="absolute top-1/2 right-[10%] -translate-y-1/2 w-[200px] h-[200px] bg-[radial-gradient(circle,rgba(90,158,120,0.08)_0%,transparent_70%)] pointer-events-none" />
+
       <div className="max-w-[1240px] mx-auto px-[clamp(20px,5vw,60px)] relative z-[1]">
         <div className="grid grid-cols-4 gap-10 text-center max-md:grid-cols-2 max-md:gap-7 max-[480px]:gap-5">
           {stats.map((stat, i) => (
             <Reveal key={i} delay={i * 100}>
               <div className="flex flex-col items-center gap-1">
-                <div className="font-[family-name:var(--font-landing-display)] text-[clamp(2.5rem,4vw,3.5rem)] text-[#E8A838] leading-none">
+                <div className="font-[family-name:var(--font-landing-display)] text-[clamp(2.5rem,4vw,3.5rem)] text-[#2d5a42] leading-none">
                   {stat.value ? (
                     <AnimatedCounter target={stat.value} suffix={stat.suffix} />
                   ) : (
                     stat.display
                   )}
                 </div>
-                <div className="text-[0.82rem] font-normal text-white/50 tracking-[0.08em] uppercase">
+                <div className="text-[0.82rem] font-normal text-[#5C574D] tracking-[0.08em] uppercase">
                   {stat.label}
                 </div>
               </div>

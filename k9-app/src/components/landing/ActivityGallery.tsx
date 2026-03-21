@@ -29,18 +29,18 @@ const activities = [
 
 export function ActivityGallery() {
   return (
-    <section className="py-[100px] bg-[#0a0a0a] relative overflow-hidden">
+    <section className="py-[100px] bg-[#F5F3EF] relative overflow-hidden">
       {/* Header */}
       <div className="max-w-[1240px] mx-auto px-[clamp(20px,5vw,60px)] mb-14">
         <Reveal>
           <div className="text-center">
-            <div className="text-[0.78rem] font-semibold tracking-[0.25em] uppercase text-[#E8A838] mb-4">
+            <div className="text-[0.78rem] font-semibold tracking-[0.25em] uppercase text-[#C4891E] mb-4">
               Life in Motion
             </div>
-            <h2 className="font-[family-name:var(--font-landing-display)] text-[clamp(2.5rem,5vw,4rem)] tracking-[0.04em] text-white leading-none mb-4">
+            <h2 className="font-[family-name:var(--font-landing-display)] text-[clamp(2.5rem,5vw,4rem)] tracking-[0.04em] text-[#2A2520] leading-none mb-4">
               EVERY DAY IS AN ADVENTURE
             </h2>
-            <p className="text-[1rem] font-light text-white/50 max-w-[500px] mx-auto">
+            <p className="text-[1rem] font-light text-[#9E9785] max-w-[500px] mx-auto">
               From mountain trails to neighbourhood parks — we keep your pets active, happy and explored
             </p>
           </div>
@@ -52,7 +52,7 @@ export function ActivityGallery() {
         <div className="grid grid-cols-3 gap-3 max-md:grid-cols-2 max-[480px]:grid-cols-1 max-[480px]:max-w-[420px] max-[480px]:mx-auto">
           {activities.map((item, i) => (
             <Reveal key={i} delay={i * 80}>
-              <div className="group relative overflow-hidden h-[280px] max-md:h-[240px] max-[480px]:h-[260px] cursor-pointer">
+              <div className="group relative overflow-hidden h-[280px] max-md:h-[240px] max-[480px]:h-[260px] cursor-pointer rounded-sm">
                 <img
                   src={item.image}
                   alt={item.label}
@@ -60,9 +60,9 @@ export function ActivityGallery() {
                   className="w-full h-full object-cover transition-transform duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-110"
                 />
                 {/* Permanent bottom gradient */}
-                <div className="absolute inset-0 bg-gradient-to-t from-[rgba(0,0,0,0.65)] via-[rgba(0,0,0,0.1)] to-transparent" />
+                <div className="absolute inset-0 bg-gradient-to-t from-[rgba(0,0,0,0.55)] via-[rgba(0,0,0,0.08)] to-transparent" />
                 {/* Hover darker overlay */}
-                <div className="absolute inset-0 bg-[rgba(0,0,0,0.2)] opacity-0 group-hover:opacity-100 transition-opacity duration-400" />
+                <div className="absolute inset-0 bg-[rgba(0,0,0,0.15)] opacity-0 group-hover:opacity-100 transition-opacity duration-400" />
                 {/* Label */}
                 <div className="absolute bottom-0 left-0 right-0 p-5">
                   <p className="font-[family-name:var(--font-landing-display)] text-[1.2rem] tracking-[0.1em] text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.5)]">

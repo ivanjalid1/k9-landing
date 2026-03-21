@@ -18,7 +18,7 @@ const serviceLinks = [
 
 export function Footer() {
   return (
-    <footer className="bg-[#050505] border-t border-white/10 pt-20 pb-10">
+    <footer className="bg-[#2A2520] pt-20 pb-10">
       <div className="max-w-[1240px] mx-auto px-[clamp(20px,5vw,60px)]">
 
         {/* Grid */}
@@ -27,7 +27,7 @@ export function Footer() {
           {/* Brand */}
           <div>
             <div className="flex items-center gap-3">
-              <img src="/k9logo.png" alt="K9 Movement" className="w-11 h-11" />
+              <img src="/k9movement_logo.svg" alt="K9 Movement" className="w-11 h-11" />
               <span className="font-[family-name:var(--font-landing-display)] text-[1.3rem] tracking-[0.1em] text-white">
                 K9 MOVEMENT
               </span>

@@ -21,7 +21,7 @@ export function FinalCTA() {
   }, [])
 
   return (
-    <section id="cta" className="relative py-[160px] max-md:py-[110px] text-center overflow-hidden bg-[#0a0a0a]">
+    <section id="cta" className="relative py-[160px] max-md:py-[110px] text-center overflow-hidden bg-[#2A2520]">
       {/* Background — mountain landscape */}
       <div className="absolute inset-[-10%] z-0">
         <img
@@ -31,9 +31,8 @@ export function FinalCTA() {
           className="w-full h-full object-cover"
         />
       </div>
-      <div className="absolute inset-0 z-[1] bg-[rgba(10,10,10,0.72)]" />
-      <div className="absolute inset-0 z-[1]" style={{ background: 'linear-gradient(180deg, #0a0a0a 0%, transparent 25%, transparent 75%, #0a0a0a 100%)' }} />
-      <div className="absolute inset-0 z-[1] bg-[radial-gradient(ellipse_at_50%_50%,rgba(232,168,56,0.08)_0%,transparent_60%)]" />
+      <div className="absolute inset-0 z-[1] bg-[rgba(42,37,32,0.65)]" />
+      <div className="absolute inset-0 z-[1]" style={{ background: 'linear-gradient(180deg, rgba(42,37,32,0.4) 0%, transparent 25%, transparent 75%, rgba(42,37,32,0.5) 100%)' }} />
 
       <div className="max-w-[1240px] mx-auto px-[clamp(20px,5vw,60px)] relative z-[2]">
         <Reveal>
@@ -49,7 +48,7 @@ export function FinalCTA() {
         </Reveal>
 
         <Reveal delay={200}>
-          <p className="text-[1.1rem] font-light text-white/60 max-w-[480px] mx-auto mb-12 leading-[1.7]">
+          <p className="text-[1.1rem] font-light text-white/70 max-w-[480px] mx-auto mb-12 leading-[1.7]">
             Contact us today to learn more about our services and how we can help you and your furry friend.
           </p>
         </Reveal>
@@ -58,7 +57,7 @@ export function FinalCTA() {
           <div className="flex items-center justify-center gap-5 flex-wrap max-[480px]:flex-col">
             <a
               href="#contact"
-              className="inline-flex items-center gap-2.5 bg-transparent text-white text-[0.88rem] font-semibold tracking-[0.15em] uppercase px-11 py-[18px] border-2 border-white/30 hover:border-white/60 hover:bg-white/5 transition-all duration-400 max-[480px]:w-full max-[480px]:justify-center"
+              className="inline-flex items-center gap-2.5 bg-transparent text-white text-[0.88rem] font-semibold tracking-[0.15em] uppercase px-11 py-[18px] border-2 border-white/40 hover:border-white/70 hover:bg-white/10 transition-all duration-400 max-[480px]:w-full max-[480px]:justify-center"
             >
               Contact Us
             </a>

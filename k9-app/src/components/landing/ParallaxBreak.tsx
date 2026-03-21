@@ -1,55 +1,37 @@
-import { useEffect, useRef } from 'react'
 import { Reveal } from '../../hooks/useScrollReveal'
 
 export function ParallaxBreak() {
-  const imgRef = useRef<HTMLImageElement>(null)
-
-  useEffect(() => {
-    const onScroll = () => {
-      const img = imgRef.current
-      if (!img) return
-      const section = img.closest('section')
-      if (!section) return
-      const rect = section.getBoundingClientRect()
-      if (rect.top < window.innerHeight && rect.bottom > 0) {
-        const offset = (rect.top - window.innerHeight / 2) * 0.3
-        img.style.transform = `translateY(${offset}px) scale(1.15)`
-      }
-    }
-    window.addEventListener('scroll', onScroll, { passive: true })
-    return () => window.removeEventListener('scroll', onScroll)
-  }, [])
-
   return (
-    <section className="relative h-[55vh] min-h-[420px] flex items-center justify-center text-center overflow-hidden bg-[#0a0a0a]">
-      {/* Background */}
-      <div className="absolute inset-[-10%] z-[1]">
-        <img
-          ref={imgRef}
-          src="https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?w=1600&q=80"
-          alt="Golden sunset landscape"
-          className="w-full h-full object-cover brightness-[0.4]"
-        />
-      </div>
-
-      {/* Overlay */}
-      <div className="absolute inset-0 z-[2]" style={{ background: 'linear-gradient(180deg, #0a0a0a 0%, transparent 20%, transparent 80%, #0a0a0a 100%), rgba(10,10,10,0.45)' }} />
+    <section className="relative py-[100px] max-md:py-[70px] flex items-center justify-center text-center overflow-hidden bg-gradient-to-br from-[#2A2520] via-[#3D3833] to-[#2A2520]">
+      {/* Warm gold radial glow */}
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_50%_50%,rgba(196,137,30,0.15)_0%,transparent_65%)] pointer-events-none" />
+      {/* Corner accents */}
+      <div className="absolute top-0 left-0 w-[300px] h-[300px] bg-[radial-gradient(circle,rgba(196,137,30,0.1)_0%,transparent_70%)] pointer-events-none" />
+      <div className="absolute bottom-0 right-0 w-[300px] h-[300px] bg-[radial-gradient(circle,rgba(196,137,30,0.08)_0%,transparent_70%)] pointer-events-none" />
+      {/* Top/bottom gold lines */}
+      <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-transparent via-[#C4891E] to-transparent opacity-40" />
+      <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-gradient-to-r from-transparent via-[#C4891E] to-transparent opacity-40" />
 
       {/* Content */}
-      <div className="relative z-[3] px-[clamp(20px,5vw,60px)] flex flex-col items-center">
+      <div className="relative z-[1] px-[clamp(20px,5vw,60px)] flex flex-col items-center max-w-[800px] mx-auto">
         <Reveal direction="scale">
-          {/* Logo */}
           <img
-            src="/k9logo.png"
+            src="/k9movement_logo.svg"
             alt="K9 Movement"
-            className="w-20 h-20 max-md:w-16 max-md:h-16 mb-8 drop-shadow-[0_4px_20px_rgba(0,0,0,0.5)]"
+            className="w-20 h-20 max-md:w-16 max-md:h-16 mb-8 drop-shadow-[0_4px_20px_rgba(196,137,30,0.3)]"
           />
         </Reveal>
         <Reveal direction="scale" delay={150}>
-          <p className="font-[family-name:var(--font-landing-accent)] text-[clamp(1.5rem,3vw,2.5rem)] italic text-white/90 max-w-[700px] mx-auto leading-[1.6]">
-            "We understand that each animal is <span className="text-[#E8A838]">unique</span>, and we tailor our services
-            to meet the individual needs of your pet."
-          </p>
+          <div className="relative">
+            <span className="absolute -top-6 -left-4 text-[4rem] leading-none text-[#C4891E]/30 font-[family-name:var(--font-landing-accent)]">"</span>
+            <p className="font-[family-name:var(--font-landing-accent)] text-[clamp(1.4rem,2.8vw,2.2rem)] italic text-white/90 max-w-[700px] mx-auto leading-[1.7]">
+              We understand that each animal is <span className="text-[#E8A838] font-semibold not-italic">unique</span>, and we tailor our services
+              to meet the individual needs of your pet.
+            </p>
+          </div>
+        </Reveal>
+        <Reveal direction="scale" delay={250}>
+          <div className="w-[60px] h-[2px] bg-gradient-to-r from-transparent via-[#E8A838] to-transparent mx-auto mt-9" />
         </Reveal>
       </div>
     </section>

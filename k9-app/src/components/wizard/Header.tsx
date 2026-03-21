@@ -24,7 +24,7 @@ export function Header() {
         <div className="relative">
           <div className="absolute -inset-1.5 rounded-full bg-gradient-to-br from-gold-500/30 to-gold-400/10 blur-[2px]" />
           <img
-            src="/k9logo.png"
+            src="/k9movement_logo.svg"
             alt="K9 Movement"
             className="relative w-[80px] h-[80px] object-cover rounded-full ring-2 ring-gold-500/40 max-sm:w-[64px] max-sm:h-[64px]"
           />

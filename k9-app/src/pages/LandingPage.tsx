@@ -8,8 +8,8 @@ import { Footer } from '../components/landing/Footer'
 
 export function LandingPage() {
   return (
-    <div className="bg-[#0a0a0a] text-white overflow-x-hidden">
-      <Nav />
+    <div className="bg-[#FAF8F4] text-[#2A2520] overflow-x-hidden">
+      <Nav darkHero />
       <Hero />
       <TrustBar />
       <Mission />

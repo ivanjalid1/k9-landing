@@ -54,10 +54,10 @@ body {
   padding: 0;
 }
 
-/* Dark background for landing pages — prevents any light bleed on overscroll/notch */
+/* Landing pages share the cream base */
 html:has(#hero) body,
 html:has(#hero) {
-  background-color: #0a0a0a;
+  background-color: var(--color-cream);
 }
 
 /* ═══ SIGNATURE CANVAS ═══ */
