@@ -1,0 +1,10 @@
+# K9 Movement: single-page app with client-side routes
+# (/training, /pet-care, /about, /service-area, /faq, /contact).
+# Real files and folders (assets, images, favicon) are served as-is;
+# every other path is handed to index.html so React Router can render it.
+RewriteEngine On
+RewriteBase /
+
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^ /index.html [L]
