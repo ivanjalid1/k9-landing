@@ -2,12 +2,17 @@ import { useState, useCallback, useMemo, useEffect } from 'react'
 import {
   INITIAL_OWNER,
   INITIAL_DOG,
+  INITIAL_PET_CARE,
   INITIAL_TRAINING_ASSESSMENT,
   INITIAL_TRAINING_APP,
   INITIAL_BOARDING_APP,
   INITIAL_WAIVER,
   INITIAL_CANCELLATION,
+  DOG_ONLY_BOARDING_FIELDS,
+  getCategories,
+  getCategoryServiceIds,
 } from '../lib/formConfig'
+import type { PetType } from '../lib/formConfig'
 
 const STORAGE_KEY = 'k9_form_draft'
 
@@ -31,13 +36,27 @@ function clearDraft(): void {
 export function useFormData() {
   const draft = useMemo(() => loadDraft(), [])
 
+  const [petType, setPetType] = useState<PetType>(draft?.petType || '')
+  const [animalType, setAnimalType] = useState<string>(draft?.animalType || '')
   const [selectedCategory, setSelectedCategory] = useState(draft?.selectedCategory || '')
   const [selectedServices, setSelectedServices] = useState(draft?.selectedServices || [])
 
+  // Selecting a category pre-checks all of its forms (+ the always-included waiver).
   const handleCategorySelect = useCallback((cat: string) => {
     setSelectedCategory(cat)
-    setSelectedServices([])
+    const ids = getCategoryServiceIds(cat)
+    setSelectedServices(ids.length > 0 ? [...ids, 'waiver-form'] : [])
   }, [])
+
+  // Switching pet type drops a category that isn't offered for that pet (training is dog-only).
+  const handlePetTypeSelect = useCallback((type: PetType) => {
+    setPetType(type)
+    const allowed = getCategories(type).map((c) => c.id)
+    if (selectedCategory && !allowed.includes(selectedCategory)) {
+      setSelectedCategory('')
+      setSelectedServices([])
+    }
+  }, [selectedCategory])
 
   const toggleService = useCallback((serviceId: string) => {
     setSelectedServices((prev: string[]) => {
@@ -55,27 +74,43 @@ export function useFormData() {
       return next
     })
   }, [])
-  const [owner, setOwner] = useState(draft?.owner || INITIAL_OWNER)
+  const [owner, setOwner] = useState(() => {
+    const saved = draft?.owner || {}
+    // Older drafts stored a single free-text emergencyContact — carry it into the name field
+    const { emergencyContact: legacyEmergency, ...rest } = saved
+    const merged = { ...INITIAL_OWNER, ...rest }
+    if (legacyEmergency && !merged.emergencyContactName) merged.emergencyContactName = legacyEmergency
+    return merged
+  })
   const [dog, setDog] = useState(draft?.dog || INITIAL_DOG)
   const [additionalDogs, setAdditionalDogs] = useState(draft?.additionalDogs || [])
+  const [petCare, setPetCare] = useState({ ...INITIAL_PET_CARE, ...(draft?.petCare || {}) })
   const [trainingAssessment, setTrainingAssessment] = useState(draft?.trainingAssessment || INITIAL_TRAINING_ASSESSMENT)
   const [trainingApp, setTrainingApp] = useState(draft?.trainingApp || INITIAL_TRAINING_APP)
-  const [boardingApp, setBoardingApp] = useState(draft?.boardingApp || INITIAL_BOARDING_APP)
+  const [boardingApp, setBoardingApp] = useState(() => {
+    // Drop the removed "toy or food possessive" question from older drafts
+    const { possessive: _p, possessiveDetails: _pd, ...rest } = draft?.boardingApp || {}
+    return { ...INITIAL_BOARDING_APP, ...rest }
+  })
   const [waiver, setWaiver] = useState(draft?.waiver || INITIAL_WAIVER)
   const [cancellation, setCancellation] = useState(draft?.cancellation || INITIAL_CANCELLATION)
   const [signatureName, setSignatureName] = useState(draft?.signatureName || '')
   const [signatureDate, setSignatureDate] = useState(draft?.signatureDate || '')
   const [signatureDataURL, setSignatureDataURL] = useState('')
+  // Photo ID (compressed JPEG data URL) — never persisted to localStorage
+  const [idPhotoDataURL, setIdPhotoDataURL] = useState('')
 
   // Persist form data to localStorage (exclude signatureDataURL — too large)
   useEffect(() => {
     saveDraft({
-      selectedCategory, selectedServices, owner, dog, additionalDogs,
+      petType, animalType,
+      selectedCategory, selectedServices, owner, dog, additionalDogs, petCare,
       trainingAssessment, trainingApp, boardingApp,
       waiver, cancellation, signatureName, signatureDate,
     })
   }, [
-    selectedCategory, selectedServices, owner, dog, additionalDogs,
+    petType, animalType,
+    selectedCategory, selectedServices, owner, dog, additionalDogs, petCare,
     trainingAssessment, trainingApp, boardingApp,
     waiver, cancellation, signatureName, signatureDate,
   ])
@@ -98,6 +133,10 @@ export function useFormData() {
 
   const updateAdditionalDog = useCallback((index: number, field: string, value: any) => {
     setAdditionalDogs((prev: Record<string, any>[]) => prev.map((d: Record<string, any>, i: number) => i === index ? { ...d, [field]: value } : d))
+  }, [])
+
+  const updatePetCare = useCallback((field: string, value: any) => {
+    setPetCare((prev: Record<string, any>) => ({ ...prev, [field]: value }))
   }, [])
 
   const updateTrainingAssessment = useCallback((field: string, value: any) => {
@@ -147,26 +186,40 @@ export function useFormData() {
       }
     }
 
+    // Dog-only questions are never shown for other animals — don't submit stale answers
+    if (petType === 'other' && allServiceData['boarding-application']) {
+      for (const field of DOG_ONLY_BOARDING_FIELDS) {
+        delete allServiceData['boarding-application'][field]
+      }
+    }
+
     return {
+      petType: petType || 'dog',
+      animalType: petType === 'other' ? animalType.trim() : '',
       category: selectedCategory,
       services: selectedServices,
       owner,
       dog,
       additionalDogs: additionalDogs.length > 0 ? additionalDogs : undefined,
+      petCare,
       allServiceData,
       signatureName,
       signatureDate,
       signatureDataURL,
+      idPhotoDataURL,
     }
-  }, [selectedCategory, selectedServices, owner, dog, additionalDogs, SERVICE_DATA_MAP, signatureName, signatureDate, signatureDataURL])
+  }, [petType, animalType, selectedCategory, selectedServices, owner, dog, additionalDogs, petCare, SERVICE_DATA_MAP, signatureName, signatureDate, signatureDataURL, idPhotoDataURL])
 
   const reset = useCallback(() => {
     clearDraft()
+    setPetType('')
+    setAnimalType('')
     setSelectedCategory('')
     setSelectedServices([])
     setOwner(INITIAL_OWNER)
     setDog(INITIAL_DOG)
     setAdditionalDogs([])
+    setPetCare(INITIAL_PET_CARE)
     setTrainingAssessment(INITIAL_TRAINING_ASSESSMENT)
     setTrainingApp(INITIAL_TRAINING_APP)
     setBoardingApp(INITIAL_BOARDING_APP)
@@ -175,14 +228,18 @@ export function useFormData() {
     setSignatureName('')
     setSignatureDate('')
     setSignatureDataURL('')
+    setIdPhotoDataURL('')
   }, [])
 
   return {
+    petType, handlePetTypeSelect,
+    animalType, setAnimalType,
     selectedCategory, handleCategorySelect,
     selectedServices, toggleService,
     owner, updateOwner,
     dog, updateDog,
     additionalDogs, addDog, removeDog, updateAdditionalDog,
+    petCare, updatePetCare,
     trainingAssessment, updateTrainingAssessment,
     trainingApp, updateTrainingApp,
     boardingApp, updateBoardingApp,
@@ -191,6 +248,7 @@ export function useFormData() {
     signatureName, setSignatureName,
     signatureDate, setSignatureDate,
     signatureDataURL, setSignatureDataURL,
+    idPhotoDataURL, setIdPhotoDataURL,
     getAllData,
     reset,
   }

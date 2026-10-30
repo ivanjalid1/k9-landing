@@ -9,9 +9,9 @@ export function Header() {
       {/* Radial glow behind logo */}
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] h-[200px] bg-gold-500/[0.06] rounded-full blur-[60px]" />
 
-      {/* Back to site */}
+      {/* Back to site (form-only build lives on its own subdomain) */}
       <a
-        href="/#contact"
+        href={import.meta.env.VITE_FORM_ONLY === 'true' ? 'https://k9movement.com/' : '/#contact'}
         className="absolute top-4 left-4 z-[2] flex items-center gap-1.5 text-[0.78rem] font-medium text-white/60 hover:text-white transition-colors duration-300 max-sm:top-3 max-sm:left-3"
       >
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>

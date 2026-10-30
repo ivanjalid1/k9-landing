@@ -11,6 +11,8 @@ export interface FormComponentProps {
   onChange: FormUpdater
   errors: FormErrors
   onClearError?: (field: string) => void
+  /** 'dog' | 'other' — used to adapt wording / hide dog-only questions */
+  petType?: string
 }
 
 export interface TrainingApplicationFormProps extends FormComponentProps {
@@ -24,7 +26,8 @@ export interface Owner {
   address: string
   city: string
   postalCode: string
-  emergencyContact: string
+  emergencyContactName: string
+  emergencyContactPhone: string
 }
 
 export interface Dog {

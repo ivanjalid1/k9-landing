@@ -4,9 +4,12 @@ interface YesNoProps {
   value: string
   onChange: (val: string) => void
   error?: string
+  /** Adds a third "Not sure" option (stored as 'unknown'). */
+  allowUnknown?: boolean
+  unknownLabel?: string
 }
 
-export function YesNo({ label, required, value, onChange, error }: YesNoProps) {
+export function YesNo({ label, required, value, onChange, error, allowUnknown, unknownLabel = 'Not sure' }: YesNoProps) {
   return (
     <div className="mb-5">
       {label && (
@@ -42,6 +45,21 @@ export function YesNo({ label, required, value, onChange, error }: YesNoProps) {
         >
           No
         </button>
+        {allowUnknown && (
+          <button
+            type="button"
+            onClick={() => onChange('unknown')}
+            className={`flex-1 py-2.5 border-[1.5px] rounded-md font-[var(--font-body)] text-[0.9rem] font-semibold cursor-pointer transition-all duration-300 text-center
+              ${value === 'unknown'
+                ? 'border-warm-500 bg-warm-500 text-white'
+                : value === ''
+                  ? 'border-dashed border-warm-300 bg-white text-warm-400 opacity-60 hover:opacity-100 hover:border-warm-400 hover:border-solid'
+                  : 'border-warm-200 bg-white text-warm-700 hover:border-warm-400'
+              }`}
+          >
+            {unknownLabel}
+          </button>
+        )}
       </div>
       {error && (
         <p className="text-[0.78rem] text-red-500 mt-1 flex items-center gap-1">{error}</p>

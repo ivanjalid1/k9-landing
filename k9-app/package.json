@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build && cp -r api dist/",
+    "build:form": "vite build --config vite.form.config.ts && cp -r api dist-form/ && rm -f dist-form/api/test_email.php dist-form/api/contact.php",
     "lint": "eslint .",
     "preview": "vite preview"
   },

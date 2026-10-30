@@ -14,6 +14,14 @@ export function useValidation() {
     })
   }, [])
 
+  const validateStep1 = (petType: string, animalType: string): boolean => {
+    const errs: Record<string, string> = {}
+    if (!petType) errs.petType = 'Please select your type of pet'
+    else if (petType === 'other' && !animalType.trim()) errs.animalType = 'Please tell us what type of animal'
+    setErrors(errs)
+    return Object.keys(errs).length === 0
+  }
+
   const validateStep2 = (owner: Record<string, string>): boolean => {
     const errs: Record<string, string> = {}
     if (!owner.fullName.trim()) errs.fullName = 'Full name is required'
@@ -21,15 +29,16 @@ export function useValidation() {
     if (!owner.email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(owner.email))
       errs.email = 'Valid email is required'
     if (!owner.address.trim()) errs.address = 'Address is required'
-    if (!owner.emergencyContact.trim()) errs.emergencyContact = 'Emergency contact is required'
+    if (!owner.emergencyContactName?.trim()) errs.emergencyContactName = 'Emergency contact name is required'
+    if (!owner.emergencyContactPhone?.trim()) errs.emergencyContactPhone = 'Emergency contact phone is required'
     setErrors(errs)
     return Object.keys(errs).length === 0
   }
 
-  const validateStep3 = (dog: Record<string, string>): boolean => {
+  const validateStep3 = (dog: Record<string, string>, { requireBreed = true }: { requireBreed?: boolean } = {}): boolean => {
     const errs: Record<string, string> = {}
     if (!dog.name.trim()) errs.name = 'Pet name is required'
-    if (!dog.breed.trim()) errs.breed = 'Breed is required'
+    if (requireBreed && !dog.breed.trim()) errs.breed = 'Breed is required'
     if (!dog.age.trim()) errs.age = 'Age is required'
     if (!dog.gender) errs.gender = 'Gender is required'
     if (Object.keys(errs).length > 0) {
@@ -59,9 +68,8 @@ export function useValidation() {
     }
 
     if (service === 'boarding-application') {
-      if (!data.bite) errs.bite = 'Please select an option'
-      if (!data.possessive) errs.possessive = 'Please select an option'
-      if (!data.sizeIssue) errs.sizeIssue = 'Please select an option'
+      if (!skip.has('bite') && !data.bite) errs.bite = 'Please select an option'
+      if (!skip.has('sizeIssue') && !data.sizeIssue) errs.sizeIssue = 'Please select an option'
       if (!data.vaccinations) errs.vaccinations = 'Please select an option'
       if (!data.effectiveDate) errs.effectiveDate = 'Effective date is required'
       if (!data.dogNames || !data.dogNames.trim()) errs.dogNames = 'Pet name(s) are required'
@@ -80,11 +88,12 @@ export function useValidation() {
     return true
   }
 
-  const validateStep5 = (name: string, hasSigned: boolean, cancellation?: { agreeTerms?: boolean }): boolean => {
+  const validateStep5 = (name: string, hasSigned: boolean, cancellation?: { agreeTerms?: boolean }, hasIdPhoto = true): boolean => {
     const errs: Record<string, string> = {}
     if (!cancellation?.agreeTerms) errs.cancelAgree = 'You must accept the cancellation policy'
     if (!name.trim()) errs.sigName = 'Full legal name is required'
     if (!hasSigned) errs.signature = 'Signature is required'
+    if (!hasIdPhoto) errs.idPhoto = 'A photo of your ID is required'
     if (Object.keys(errs).length > 0) {
       setErrors(prev => ({ ...prev, ...errs }))
       return false
@@ -96,6 +105,7 @@ export function useValidation() {
     errors,
     clearErrors,
     clearError,
+    validateStep1,
     validateStep2,
     validateStep3,
     validateStep4,

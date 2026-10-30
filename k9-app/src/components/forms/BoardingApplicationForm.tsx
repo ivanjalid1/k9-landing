@@ -3,85 +3,79 @@ import { YesNo } from '../ui/YesNo'
 import { SectionDivider } from '../ui/SectionDivider'
 import type { FormComponentProps } from '../../types'
 
-export function BoardingApplicationForm({ data, onChange, errors, onClearError }: FormComponentProps) {
+export function BoardingApplicationForm({ data, onChange, errors, onClearError, petType }: FormComponentProps) {
   const u = (field: string) => (e: any) => { onChange(field, e.target ? e.target.value : e); onClearError?.(field) }
+  const isDog = petType !== 'other'
+  const pet = isDog ? 'dog' : 'pet'
 
   return (
     <>
-      <YesNo
-        label="Has your dog ever attempted to bite another dog or person?"
-        required
-        value={data.bite}
-        onChange={u('bite')}
-        error={errors.bite}
-      />
-      {data.bite === 'yes' && (
-        <Textarea
-          label="If yes, please explain"
-          value={data.biteDetails}
-          onChange={u('biteDetails')}
-          placeholder="Describe the incident(s)..."
-        />
+      {isDog && (
+        <>
+          <YesNo
+            label="Has your dog ever attempted to bite another dog or person?"
+            required
+            value={data.bite}
+            onChange={u('bite')}
+            error={errors.bite}
+          />
+          {data.bite === 'yes' && (
+            <Textarea
+              label="If yes, please explain"
+              value={data.biteDetails}
+              onChange={u('biteDetails')}
+              placeholder="Describe the incident(s)..."
+            />
+          )}
+        </>
       )}
 
-      <YesNo
-        label="Is your dog toy or food possessive?"
-        required
-        value={data.possessive}
-        onChange={u('possessive')}
-        error={errors.possessive}
-      />
-      {data.possessive === 'yes' && (
-        <Textarea
-          label="If yes, please explain"
-          value={data.possessiveDetails}
-          onChange={u('possessiveDetails')}
-          placeholder="Describe the possessive behavior..."
-        />
-      )}
+      {isDog && (
+        <>
+          <YesNo
+            label="Has your dog ever been in a fight with another dog?"
+            value={data.fight}
+            onChange={u('fight')}
+          />
+          {data.fight === 'yes' && (
+            <Textarea
+              label="If yes, please explain"
+              value={data.fightDetails}
+              onChange={u('fightDetails')}
+              placeholder="Describe what happened..."
+            />
+          )}
 
-      <YesNo
-        label="Has your dog ever been in a fight with another dog?"
-        value={data.fight}
-        onChange={u('fight')}
-      />
-      {data.fight === 'yes' && (
-        <Textarea
-          label="If yes, please explain"
-          value={data.fightDetails}
-          onChange={u('fightDetails')}
-          placeholder="Describe what happened..."
-        />
-      )}
+          <YesNo
+            label="Does your dog have problems with dogs smaller or larger than them?"
+            required
+            value={data.sizeIssue}
+            onChange={u('sizeIssue')}
+            error={errors.sizeIssue}
+          />
+          {data.sizeIssue === 'yes' && (
+            <Textarea
+              label="Please explain"
+              value={data.sizeIssueDetails}
+              onChange={u('sizeIssueDetails')}
+              placeholder="Describe the issue..."
+            />
+          )}
 
-      <YesNo
-        label="Does your dog have problems with dogs smaller or larger than them?"
-        required
-        value={data.sizeIssue}
-        onChange={u('sizeIssue')}
-        error={errors.sizeIssue}
-      />
-      {data.sizeIssue === 'yes' && (
-        <Textarea
-          label="Please explain"
-          value={data.sizeIssueDetails}
-          onChange={u('sizeIssueDetails')}
-          placeholder="Describe the issue..."
-        />
-      )}
-
-      <YesNo
-        label="Has your dog been to dog parks?"
-        value={data.parks}
-        onChange={u('parks')}
-      />
-      {data.parks === 'yes' && (
-        <Textarea
-          label="How do they interact at dog parks?"
-          value={data.parksDetails}
-          onChange={u('parksDetails')}
-          placeholder="Describe how your dog plays and interacts with other dogs..."
-        />
+          <YesNo
+            label="Has your dog been to dog parks?"
+            value={data.parks}
+            onChange={u('parks')}
+          />
+          {data.parks === 'yes' && (
+            <Textarea
+              label="How do they interact at dog parks?"
+              value={data.parksDetails}
+              onChange={u('parksDetails')}
+              placeholder="Describe how your dog plays and interacts with other dogs..."
+            />
+          )}
+        </>
       )}
 
       <SectionDivider label="Veterinary Information" />
@@ -124,7 +118,7 @@ export function BoardingApplicationForm({ data, onChange, errors, onClearError }
       />
 
       <YesNo
-        label="Is your dog taking any medication?"
+        label={`Is your ${pet} taking any medication?`}
         value={data.onMeds}
         onChange={u('onMeds')}
       />
@@ -138,7 +132,7 @@ export function BoardingApplicationForm({ data, onChange, errors, onClearError }
       )}
 
       <YesNo
-        label="Is your dog up to date on all vaccinations?"
+        label={`Is your ${pet} up to date on all vaccinations?`}
         required
         value={data.vaccinations}
         onChange={u('vaccinations')}
@@ -172,20 +166,20 @@ export function BoardingApplicationForm({ data, onChange, errors, onClearError }
       />
 
       <Input
-        label="Dog(s) / Pet(s) Names"
+        label={isDog ? 'Dog(s) / Pet(s) Names' : 'Pet(s) Names'}
         required
         value={data.dogNames}
         onChange={u('dogNames')}
-        placeholder="List all dogs/pets covered by this agreement"
+        placeholder={isDog ? 'List all dogs/pets covered by this agreement' : 'List all pets covered by this agreement'}
         error={errors.dogNames}
       />
 
       <div className="legal-scroll bg-warm-50 border border-warm-200 rounded-xl p-6 max-h-[400px] overflow-y-auto text-[0.85rem] leading-[1.7] text-warm-600 mb-5 max-sm:max-h-[280px] max-sm:p-4">
         <h3 className="font-[var(--font-display)] text-[1.2rem] font-bold text-forest-800 mb-3">
-          Dog Walking / Pet Sitting Agreement / Pet Boarding
+          {isDog ? 'Dog Walking / Pet Sitting Agreement / Pet Boarding' : 'Pet Sitting / Pet Boarding Agreement'}
         </h3>
         <p><strong>NOTICE TO THE PET OWNER/GUARDIAN: PLEASE READ CAREFULLY.</strong></p>
-        <p className="mt-2">This Walking / Boarding / Pet Sitting Agreement ("The Agreement") is entered into effective by and between <strong>K9 MOVEMENT</strong> ("Contractor") and the undersigned individual ("The Owner").</p>
+        <p className="mt-2">This {isDog ? 'Walking / Boarding / Pet Sitting' : 'Boarding / Pet Sitting'} Agreement ("The Agreement") is entered into effective by and between <strong>K9 MOVEMENT</strong> ("Contractor") and the undersigned individual ("The Owner").</p>
 
         <h4 className="text-[0.88rem] font-bold text-warm-700 mt-4 mb-2 uppercase tracking-[0.05em]">Terms and Conditions</h4>
         <ul className="ml-5 list-disc space-y-1">

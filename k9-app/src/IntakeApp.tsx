@@ -3,7 +3,7 @@ import { useWizard } from './hooks/useWizard'
 import { useFormData } from './hooks/useFormData'
 import { useValidation } from './hooks/useValidation'
 import { sendApplication } from './lib/emailService'
-import { INITIAL_TRAINING_APP, INITIAL_BOARDING_APP, INITIAL_WAIVER, INITIAL_TRAINING_ASSESSMENT } from './lib/formConfig'
+import { INITIAL_TRAINING_APP, INITIAL_BOARDING_APP, INITIAL_WAIVER, INITIAL_TRAINING_ASSESSMENT, DOG_ONLY_BOARDING_FIELDS, getServiceTitle } from './lib/formConfig'
 
 import { Header } from './components/wizard/Header'
 import { ProgressBar } from './components/wizard/ProgressBar'
@@ -13,8 +13,9 @@ import { NavBar } from './components/wizard/NavBar'
 import { ServiceSelection } from './components/wizard/ServiceSelection'
 import { SignaturePad } from './components/wizard/SignaturePad'
 import { SuccessScreen } from './components/wizard/SuccessScreen'
+import { IdPhotoUpload } from './components/wizard/IdPhotoUpload'
 import { Toast } from './components/ui/Toast'
-import { Input, Select } from './components/ui/Input'
+import { Input, Select, Textarea } from './components/ui/Input'
 import { YesNo } from './components/ui/YesNo'
 import { SectionDivider } from './components/ui/SectionDivider'
 import { Button } from './components/ui/Button'
@@ -24,13 +25,6 @@ import { TrainingApplicationForm } from './components/forms/TrainingApplicationF
 import { BoardingApplicationForm } from './components/forms/BoardingApplicationForm'
 import { WaiverForm } from './components/forms/WaiverForm'
 import { CancellationPolicyForm } from './components/forms/CancellationPolicyForm'
-
-const SERVICE_TITLES: Record<string, string> = {
-  'training-assessment': 'Training Assessment',
-  'training-application': 'Training Application',
-  'boarding-application': 'Walking, Sitting & Boarding Application',
-  'waiver-form': 'Waiver & Release Form',
-}
 
 const SERVICE_FORM_MAP: Record<string, { Component: any; dataKey: string; updateKey: string }> = {
   'training-assessment': { Component: TrainingAssessmentForm, dataKey: 'trainingAssessment', updateKey: 'updateTrainingAssessment' },
@@ -42,7 +36,7 @@ const SERVICE_FORM_MAP: Record<string, { Component: any; dataKey: string; update
 const REQUIRED_FIELDS: Record<string, string[]> = {
   'training-assessment': ['goals', 'strangerReaction', 'vaccinations', 'rabiesVaccine'],
   'training-application': ['goals', 'vetClinicName', 'vaccinations', 'rabiesVaccine'],
-  'boarding-application': ['bite', 'possessive', 'sizeIssue', 'vaccinations', 'effectiveDate', 'dogNames', 'agreeServiceTerms'],
+  'boarding-application': ['bite', 'sizeIssue', 'vaccinations', 'effectiveDate', 'dogNames', 'agreeServiceTerms'],
   'waiver-form': ['dogNames', 'agreeTerms'],
 }
 
@@ -78,15 +72,22 @@ function App() {
     [form.selectedServices]
   )
 
+  const isOtherAnimal = form.petType === 'other'
+
+  // Required fields to skip for a given form: duplicates when both training forms
+  // are selected, and dog-only questions when the pet is another animal.
+  const getSkipFields = useCallback((svcId: string): string[] => {
+    if (svcId === 'training-application' && hasBothTraining) return ['goals', 'vaccinations', 'rabiesVaccine']
+    if (svcId === 'boarding-application' && isOtherAnimal) return DOG_ONLY_BOARDING_FIELDS
+    return []
+  }, [hasBothTraining, isOtherAnimal])
+
   const isServiceComplete = useCallback((svcId: string) => {
     const mapping = SERVICE_FORM_MAP[svcId]
     if (!mapping) return false
     const data = (form as any)[mapping.dataKey]
-    let required = REQUIRED_FIELDS[svcId] || []
-    // Skip duplicate required fields when both training forms selected
-    if (svcId === 'training-application' && hasBothTraining) {
-      required = required.filter((f: string) => f !== 'goals' && f !== 'vaccinations' && f !== 'rabiesVaccine')
-    }
+    const skip = getSkipFields(svcId)
+    const required = (REQUIRED_FIELDS[svcId] || []).filter((f: string) => !skip.includes(f))
     // If filtering removed all required fields, require that at least one
     // field in the form data has been changed from its initial value
     if (required.length === 0) {
@@ -110,12 +111,17 @@ function App() {
       if (Array.isArray(val)) return val.length > 0
       return val && String(val).trim() !== ''
     })
-  }, [form, hasBothTraining])
+  }, [form, getSkipFields])
 
   const handleNext = useCallback(() => {
     validation.clearErrors()
 
     if (wizard.currentStep === 1) {
+      if (!validation.validateStep1(form.petType, form.animalType)) {
+        showToast(form.petType ? 'Please tell us what type of animal you have' : 'Please select your type of pet')
+        scrollToFirstError()
+        return
+      }
       if (!form.selectedCategory) {
         showToast('Please select a category to continue')
         return
@@ -135,7 +141,7 @@ function App() {
     }
 
     if (wizard.currentStep === 3) {
-      if (!validation.validateStep3(form.dog)) {
+      if (!validation.validateStep3(form.dog, { requireBreed: !isOtherAnimal })) {
         showToast('Please fill in all required pet fields')
         scrollToFirstError()
         return
@@ -150,6 +156,20 @@ function App() {
           form.updateBoardingApp('dogNames', allDogNames)
         }
       }
+      // Pre-fill vet info in the selected service forms (still editable there)
+      const vetMap: Record<string, { data: any; update: (f: string, v: any) => void }> = {
+        'training-assessment': { data: form.trainingAssessment, update: form.updateTrainingAssessment },
+        'training-application': { data: form.trainingApp, update: form.updateTrainingApp },
+        'boarding-application': { data: form.boardingApp, update: form.updateBoardingApp },
+      }
+      for (const svc of form.selectedServices) {
+        const target = vetMap[svc]
+        if (!target) continue
+        for (const field of ['vetName', 'vetClinicName', 'vetPhone']) {
+          const val = form.petCare[field]
+          if (val && val.trim() && !target.data[field]) target.update(field, val)
+        }
+      }
       // Auto-fill effective date for boarding application
       if (form.selectedServices.includes('boarding-application') && !form.boardingApp.effectiveDate) {
         form.updateBoardingApp('effectiveDate', new Date().toISOString().split('T')[0])
@@ -161,12 +181,8 @@ function App() {
         const mapping = SERVICE_FORM_MAP[svc]
         if (mapping) {
           const data = (form as any)[mapping.dataKey]
-          // When both training forms selected, skip duplicate required fields in application
-          const skipFields = (svc === 'training-application' && hasBothTraining)
-            ? ['goals', 'vaccinations', 'rabiesVaccine']
-            : []
-          if (!validation.validateStep4(svc, data, skipFields)) {
-            showToast(`Please complete all required fields in ${SERVICE_TITLES[svc]}`)
+          if (!validation.validateStep4(svc, data, getSkipFields(svc))) {
+            showToast(`Please complete all required fields in ${getServiceTitle(svc, form.petType)}`)
             scrollToFirstError()
             return
           }
@@ -182,14 +198,14 @@ function App() {
     }
 
     wizard.next()
-  }, [wizard, form, validation, showToast])
+  }, [wizard, form, validation, showToast, isOtherAnimal, getSkipFields])
 
   const handleSubmit = useCallback(async () => {
     validation.clearErrors()
 
     // Validate signature
-    if (!validation.validateStep5(form.signatureName, !!form.signatureDataURL, form.cancellation)) {
-      showToast('Please accept the cancellation policy and complete the signature')
+    if (!validation.validateStep5(form.signatureName, !!form.signatureDataURL, form.cancellation, !!form.idPhotoDataURL)) {
+      showToast('Please accept the cancellation policy, sign, and add a photo of your ID')
       scrollToFirstError()
       return
     }
@@ -255,9 +271,14 @@ function App() {
         <StepPanel stepNumber={1} currentStep={wizard.currentStep}>
           <FormCard
             title="Select Your Services"
-            description="Choose a category, then select the forms you need to complete."
+            description="Tell us about your pet, then choose a category and the forms you need to complete."
           >
             <ServiceSelection
+              petType={form.petType}
+              onPetTypeSelect={(type) => { form.handlePetTypeSelect(type); validation.clearError('petType') }}
+              animalType={form.animalType}
+              onAnimalTypeChange={(value) => { form.setAnimalType(value); validation.clearError('animalType') }}
+              animalTypeError={validation.errors.animalType}
               category={form.selectedCategory}
               onCategorySelect={form.handleCategorySelect}
               selectedServices={form.selectedServices}
@@ -356,14 +377,29 @@ function App() {
                 </span>
                 <span className="text-[0.78rem] font-bold uppercase tracking-[0.08em] text-red-600/80">Emergency Contact</span>
               </div>
-              <Input
-                label="Emergency Contact" required
-                value={form.owner.emergencyContact}
-                onChange={(e) => { form.updateOwner('emergencyContact', e.target.value); validation.clearError('emergencyContact') }}
-                placeholder="Name and phone number"
-                error={validation.errors.emergencyContact}
-                className="!mb-0"
-              />
+              <p className="text-[0.8rem] text-warm-500 mb-4 -mt-1">
+                Someone we can reach if we can't get hold of you. Used for all of your applications.
+              </p>
+              <div className="grid grid-cols-2 gap-4 max-sm:grid-cols-1 max-sm:gap-0">
+                <Input
+                  label="Emergency Contact Name" required
+                  value={form.owner.emergencyContactName}
+                  onChange={(e) => { form.updateOwner('emergencyContactName', e.target.value); validation.clearError('emergencyContactName') }}
+                  placeholder="Jane Smith"
+                  error={validation.errors.emergencyContactName}
+                  className="!mb-0 max-sm:!mb-4"
+                />
+                <Input
+                  label="Emergency Contact Phone" required
+                  type="tel"
+                  value={form.owner.emergencyContactPhone}
+                  onChange={(e) => { form.updateOwner('emergencyContactPhone', e.target.value); validation.clearError('emergencyContactPhone') }}
+                  placeholder="(416) 555-0199"
+                  autoComplete="off"
+                  error={validation.errors.emergencyContactPhone}
+                  className="!mb-0"
+                />
+              </div>
             </div>
 
             <NavBar onPrev={wizard.prev} onNext={handleNext} />
@@ -389,10 +425,10 @@ function App() {
             />
             <div className="grid grid-cols-2 gap-4 max-sm:grid-cols-1 max-sm:gap-0">
               <Input
-                label="Breed" required
+                label={isOtherAnimal ? 'Breed (if known)' : 'Breed'} required={!isOtherAnimal}
                 value={form.dog.breed}
                 onChange={(e) => { form.updateDog('breed', e.target.value); validation.clearError('breed') }}
-                placeholder="Golden Retriever"
+                placeholder={isOtherAnimal ? 'e.g., Abyssinian' : 'Golden Retriever'}
                 error={validation.errors.breed}
               />
               <Input
@@ -418,13 +454,15 @@ function App() {
                 label="Weight"
                 value={form.dog.weight}
                 onChange={(e) => form.updateDog('weight', e.target.value)}
-                placeholder="e.g., 65 lbs"
+                placeholder={isOtherAnimal ? 'e.g., 2 lbs' : 'e.g., 65 lbs'}
               />
             </div>
             <YesNo
               label="Spayed / Neutered?"
               value={form.dog.spayedNeutered}
               onChange={(val) => form.updateDog('spayedNeutered', val)}
+              allowUnknown
+              unknownLabel="I don't know"
             />
 
             {/* ─── ADDITIONAL PETS (only for boarding & walking/sitting) ─── */}
@@ -450,10 +488,10 @@ function App() {
                     />
                     <div className="grid grid-cols-2 gap-4 max-sm:grid-cols-1 max-sm:gap-0">
                       <Input
-                        label="Breed" required
+                        label={isOtherAnimal ? 'Breed (if known)' : 'Breed'} required={!isOtherAnimal}
                         value={aDog.breed}
                         onChange={(e) => form.updateAdditionalDog(i, 'breed', e.target.value)}
-                        placeholder="Golden Retriever"
+                        placeholder={isOtherAnimal ? 'e.g., Abyssinian' : 'Golden Retriever'}
                       />
                       <Input
                         label="Age" required
@@ -476,13 +514,15 @@ function App() {
                         label="Weight"
                         value={aDog.weight}
                         onChange={(e) => form.updateAdditionalDog(i, 'weight', e.target.value)}
-                        placeholder="e.g., 65 lbs"
+                        placeholder={isOtherAnimal ? 'e.g., 2 lbs' : 'e.g., 65 lbs'}
                       />
                     </div>
                     <YesNo
                       label="Spayed / Neutered?"
                       value={aDog.spayedNeutered}
                       onChange={(val) => form.updateAdditionalDog(i, 'spayedNeutered', val)}
+                      allowUnknown
+                      unknownLabel="I don't know"
                     />
                   </div>
                 ))}
@@ -498,6 +538,40 @@ function App() {
                 )}
               </>
             )}
+
+            {/* ─── VET + FEEDING (all species) ─── */}
+            <SectionDivider label="Veterinarian (if applicable)" />
+            <Input
+              label="Veterinarian Name"
+              value={form.petCare.vetName}
+              onChange={(e) => form.updatePetCare('vetName', e.target.value)}
+              placeholder="e.g., Dr. Jane Smith"
+            />
+            <div className="grid grid-cols-2 gap-4 max-sm:grid-cols-1 max-sm:gap-0">
+              <Input
+                label="Clinic Name"
+                value={form.petCare.vetClinicName}
+                onChange={(e) => form.updatePetCare('vetClinicName', e.target.value)}
+                placeholder="e.g., Downtown Animal Hospital"
+              />
+              <Input
+                label="Clinic Phone"
+                type="tel"
+                value={form.petCare.vetPhone}
+                onChange={(e) => form.updatePetCare('vetPhone', e.target.value)}
+                placeholder="(416) 555-0123"
+              />
+            </div>
+
+            <SectionDivider label="Feeding" />
+            <Textarea
+              label="Feeding Information"
+              value={form.petCare.feedingInstructions}
+              onChange={(e) => form.updatePetCare('feedingInstructions', e.target.value)}
+              placeholder={isOtherAnimal
+                ? 'Food type, amount and schedule (e.g., 1/4 cup pellets + fresh hay, twice a day)'
+                : 'Food type, amount and schedule (e.g., 1 cup kibble at 7am and 6pm)'}
+            />
 
             <NavBar onPrev={wizard.prev} onNext={handleNext} />
           </FormCard>
@@ -532,7 +606,7 @@ function App() {
                           }`}
                       >
                         <span className="mr-1.5 text-[0.75rem] opacity-70">{i + 1}/{sortedServices.length}</span>
-                        {SERVICE_TITLES[svcId]}
+                        {getServiceTitle(svcId, form.petType)}
                         {isServiceComplete(svcId) && <span className="ml-1.5 text-[0.75rem]">&#10003;</span>}
                       </button>
                     ))}
@@ -543,13 +617,14 @@ function App() {
                 {mapping && (
                   <FormCard
                     key={currentSvcId}
-                    title={SERVICE_TITLES[currentSvcId]}
+                    title={getServiceTitle(currentSvcId, form.petType)}
                   >
                     <mapping.Component
                       data={(form as any)[mapping.dataKey]}
                       onChange={(form as any)[mapping.updateKey]}
                       errors={validation.errors}
                       onClearError={validation.clearError}
+                      petType={form.petType}
                       {...(currentSvcId === 'training-application' && hasBothTraining ? { hideDuplicates: true } : {})}
                     />
                   </FormCard>
@@ -575,11 +650,8 @@ function App() {
                       if (m) {
                         validation.clearErrors()
                         const d = (form as any)[m.dataKey]
-                        const skipFields = (svc === 'training-application' && hasBothTraining)
-                          ? ['goals', 'vaccinations', 'rabiesVaccine']
-                          : []
-                        if (!validation.validateStep4(svc, d, skipFields)) {
-                          showToast(`Please complete all required fields in ${SERVICE_TITLES[svc]}`)
+                        if (!validation.validateStep4(svc, d, getSkipFields(svc))) {
+                          showToast(`Please complete all required fields in ${getServiceTitle(svc, form.petType)}`)
                           scrollToFirstError()
                           return
                         }
@@ -635,6 +707,13 @@ function App() {
             {validation.errors.signature && (
               <p className="text-[0.78rem] text-red-500 -mt-3 mb-4">{validation.errors.signature}</p>
             )}
+
+            <SectionDivider label="Identification" />
+            <IdPhotoUpload
+              value={form.idPhotoDataURL}
+              onChange={(url) => { form.setIdPhotoDataURL(url); validation.clearError('idPhoto') }}
+              error={validation.errors.idPhoto}
+            />
 
             <div className="flex flex-col gap-3 items-stretch pt-6 mt-2 border-t border-warm-100">
               <Button

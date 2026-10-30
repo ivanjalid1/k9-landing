@@ -79,10 +79,18 @@ $requests[] = $now;
 file_put_contents($rate_file, json_encode(array_values($requests)), LOCK_EX);
 
 // ─── DATA EXTRACTION ───
+// Pet type: 'dog' (default, also for older clients) or 'other' (cats, guinea pigs...)
+$pet_type    = (($data['petType'] ?? 'dog') === 'other') ? 'other' : 'dog';
+$is_other    = $pet_type === 'other';
+$animal_type = trim((string)($data['animalType'] ?? ''));
+$pet_type_display = $is_other
+    ? ($animal_type !== '' ? ucfirst($animal_type) : 'Other')
+    : 'Dog';
+
 $service_labels = [
     'training-assessment'   => 'Dog Training Assessment',
     'training-application'  => 'Training Application Form',
-    'boarding-application'  => 'Walking / Sitting & Boarding Application',
+    'boarding-application'  => $is_other ? 'Sitting & Boarding Application' : 'Walking / Sitting & Boarding Application',
     'walking-agreement'     => 'Dog Walking / Pet Sitting Agreement',
     'waiver-form'           => 'Waiver & Release Form',
 ];
@@ -102,6 +110,59 @@ $all_service_data = $data['allServiceData'] ?? ($data['serviceData'] ? [$data['s
 $sig_name  = $data['signatureName'] ?? '';
 $sig_date  = $data['signatureDate'] ?? '';
 $sig_image = $data['signatureDataURL'] ?? '';
+$pet_care  = is_array($data['petCare'] ?? null) ? $data['petCare'] : [];
+
+// Boarding questions that only apply to dogs — never shown for other animals
+$dog_only_boarding_fields = ['bite', 'biteDetails', 'fight', 'fightDetails', 'sizeIssue', 'sizeIssueDetails', 'parks', 'parksDetails'];
+if ($is_other && isset($all_service_data['boarding-application']) && is_array($all_service_data['boarding-application'])) {
+    foreach ($dog_only_boarding_fields as $f) unset($all_service_data['boarding-application'][$f]);
+}
+// "Toy or food possessive" was removed from the boarding application — ignore it from older clients
+if (isset($all_service_data['boarding-application']) && is_array($all_service_data['boarding-application'])) {
+    unset($all_service_data['boarding-application']['possessive'], $all_service_data['boarding-application']['possessiveDetails']);
+}
+
+// Emergency contact: name + phone (older clients sent one free-text 'emergencyContact')
+$emergency_name  = trim((string)($owner['emergencyContactName'] ?? ''));
+$emergency_phone = trim((string)($owner['emergencyContactPhone'] ?? ''));
+$emergency_legacy = trim((string)($owner['emergencyContact'] ?? ''));
+if ($emergency_name === '' && $emergency_phone === '' && $emergency_legacy !== '') {
+    $emergency_name = $emergency_legacy;
+}
+
+// ─── PHOTO ID (required; JPG/PNG only, max 10MB) ───
+// Kept in memory (plus a short-lived file in the system temp dir for the PDF) — never saved to a web folder.
+$ID_MAX_BYTES = 10 * 1024 * 1024;
+$id_image = null;
+$id_raw = $data['idPhotoDataURL'] ?? '';
+if (!is_string($id_raw) || $id_raw === '') {
+    http_response_code(400);
+    echo json_encode(['success' => false, 'error' => 'Photo ID is required']);
+    exit;
+}
+if (!preg_match('#^data:image/(jpeg|jpg|png);base64,#i', $id_raw, $m)
+    || strlen($id_raw) > (int)ceil($ID_MAX_BYTES * 4 / 3) + 100) {
+    http_response_code(400);
+    echo json_encode(['success' => false, 'error' => 'Photo ID must be a JPG or PNG image up to 10MB']);
+    exit;
+}
+$id_bytes = base64_decode(substr($id_raw, strlen($m[0])), true);
+$id_info  = ($id_bytes !== false) ? @getimagesizefromstring($id_bytes) : false;
+if ($id_bytes === false || strlen($id_bytes) > $ID_MAX_BYTES || !$id_info
+    || !in_array($id_info[2], [IMAGETYPE_JPEG, IMAGETYPE_PNG], true)) {
+    http_response_code(400);
+    echo json_encode(['success' => false, 'error' => 'Photo ID must be a JPG or PNG image up to 10MB']);
+    exit;
+}
+$id_is_png = $id_info[2] === IMAGETYPE_PNG;
+$id_image = [
+    'bytes' => $id_bytes,
+    'ext'   => $id_is_png ? 'png' : 'jpg',
+    'mime'  => $id_is_png ? 'image/png' : 'image/jpeg',
+    'w'     => $id_info[0],
+    'h'     => $id_info[1],
+];
+unset($id_raw, $id_bytes, $data['idPhotoDataURL']);
 
 // ─── LOGO BASE64 FOR EMAILS ───
 $logo_base64 = '';
@@ -116,11 +177,17 @@ function formatLabel($key) {
     return ucfirst(trim($label));
 }
 
-function formatValue($val) {
-    if (is_array($val)) return htmlspecialchars(implode(', ', $val));
+// Human-readable value (no HTML escaping) — shared by PDF and emails
+function plainValue($val) {
+    if (is_array($val)) return implode(', ', $val);
     if ($val === true || $val === 'yes') return 'Yes';
     if ($val === 'no') return 'No';
-    return htmlspecialchars($val);
+    if ($val === 'unknown') return "Doesn't know";
+    return (string)$val;
+}
+
+function formatValue($val) {
+    return htmlspecialchars(plainValue($val));
 }
 
 // ─── LABEL MAPS (field name → human-readable label) ───
@@ -248,8 +315,6 @@ $label_maps = [
     'boarding-application' => [
         'bite' => 'Has Dog Attempted To Bite Another Dog Or Person?',
         'biteDetails' => 'Bite Incident Details',
-        'possessive' => 'Is Dog Toy Or Food Possessive?',
-        'possessiveDetails' => 'Possessive Behavior Details',
         'fight' => 'Has Dog Been In A Fight With Another Dog?',
         'fightDetails' => 'Fight Details',
         'sizeIssue' => 'Problems With Dogs Smaller Or Larger?',
@@ -268,6 +333,9 @@ $label_maps = [
         'obedience' => 'Has Dog Been To Obedience Classes?',
         'obedienceDetails' => 'Obedience Class Details',
         'referral' => 'How Did You Hear About Us?',
+        'effectiveDate' => 'Agreement Effective Date',
+        'dogNames' => 'Dog(s) / Pet(s) Names',
+        'agreeServiceTerms' => 'Agreed To Service Agreement',
     ],
     'walking-agreement' => [
         'agreementInitials' => 'Initials',
@@ -277,10 +345,67 @@ $label_maps = [
     ],
     'waiver-form' => [
         'waiverInitials' => 'Initials',
-        'dogNames' => 'Dog Name(s)',
+        'dogNames' => 'Pet Name(s)',
         'agreeTerms' => 'Agreed To Waiver Terms',
     ],
 ];
+
+// Pet-generic wording for non-dog submissions
+if ($is_other) {
+    $label_maps['boarding-application'] = array_merge($label_maps['boarding-application'], [
+        'onMeds' => 'Is Pet Taking Medication?',
+        'dogNames' => 'Pet(s) Names',
+    ]);
+}
+
+// Vet fields are asked once in the Pet step; skip identical copies inside service forms
+function isDuplicateVetField($key, $val, $pet_care) {
+    if (!in_array($key, ['vetName', 'vetClinicName', 'vetPhone'], true)) return false;
+    $shared = trim((string)($pet_care[$key] ?? ''));
+    return $shared !== '' && is_string($val) && trim($val) === $shared;
+}
+
+// Rows for a "Pet Information" section (shared by PDF + admin email)
+function petRows($pet, $pet_type_display = null) {
+    $rows = [];
+    if ($pet_type_display !== null) $rows['Type Of Pet'] = $pet_type_display;
+    $rows['Name']   = $pet['name'] ?? '';
+    $rows['Breed']  = $pet['breed'] ?? '';
+    $rows['Age']    = $pet['age'] ?? '';
+    $rows['Gender'] = ucfirst((string)($pet['gender'] ?? ''));
+    $rows['Weight'] = $pet['weight'] ?? '';
+    $rows['Spayed / Neutered'] = plainValue($pet['spayedNeutered'] ?? '');
+    return $rows;
+}
+
+// Vet + feeding rows (only the ones that were filled in)
+function petCareRows($pet_care) {
+    $rows = [];
+    foreach ([
+        'vetName' => 'Veterinarian',
+        'vetClinicName' => 'Vet Clinic',
+        'vetPhone' => 'Clinic Phone',
+        'feedingInstructions' => 'Feeding Information',
+    ] as $key => $label) {
+        $v = trim((string)($pet_care[$key] ?? ''));
+        if ($v !== '') $rows[$label] = $v;
+    }
+    return $rows;
+}
+
+// Two-column HTML table rows for the emails
+function htmlRows($rows) {
+    $html = '';
+    $labels = array_keys($rows);
+    $last = end($labels);
+    foreach ($rows as $label => $val) {
+        $border = ($label === $last) ? '' : 'border-bottom:1px solid #f0f0f0;';
+        $l = htmlspecialchars($label);
+        $v = nl2br(htmlspecialchars((string)$val));
+        $html .= "<tr><td style='padding:8px 12px;font-weight:600;color:#374151;{$border}width:40%;vertical-align:top;'>{$l}</td><td style='padding:8px 12px;color:#1f2937;{$border}'>{$v}</td></tr>";
+    }
+    return $html;
+}
 
 function getLabelForField($key, $map) {
     if (isset($map[$key])) return $map[$key];
@@ -297,8 +422,9 @@ foreach ($all_service_data as $svc_id => $details) {
     $details_rows_html .= "<tr><td colspan='2' style='padding:12px 12px 4px;font-weight:700;color:#1a3a2a;font-size:13px;text-transform:uppercase;letter-spacing:0.5px;border-bottom:2px solid #1a3a2a;'>{$svc_title}</td></tr>";
     foreach ($details as $key => $val) {
         if ($val === '' || $val === false || (is_array($val) && empty($val))) continue;
+        if (isDuplicateVetField($key, $val, $pet_care)) continue;
         $label = getLabelForField($key, $current_label_map);
-        $fval  = formatValue($val);
+        $fval  = nl2br(formatValue($val));
         $details_rows_html .= "<tr><td style='padding:8px 12px;font-weight:600;color:#374151;border-bottom:1px solid #f0f0f0;width:40%;vertical-align:top;'>{$label}</td><td style='padding:8px 12px;color:#1f2937;border-bottom:1px solid #f0f0f0;'>{$fval}</td></tr>";
         $details_rows_text .= "  {$label}: {$fval}\n";
     }
@@ -344,7 +470,11 @@ class K9PDF extends FPDF {
         $this->Cell(0, 10, 'K9 Movement  |  Confidential Client Record  |  Page ' . $this->PageNo(), 0, 0, 'C');
     }
 
-    function SectionTitle($title) {
+    function SectionTitle($title, $keepWith = 20) {
+        // Don't leave a heading alone at the bottom of a page
+        if ($this->GetY() + 13 + $keepWith > $this->PageBreakTrigger) {
+            $this->AddPage();
+        }
         $this->SetFont('Helvetica', 'B', 12);
         $this->SetTextColor(26, 58, 42);
         $this->Cell(0, 10, $this->utf8($title), 0, 1);
@@ -355,53 +485,122 @@ class K9PDF extends FPDF {
         $this->Ln(3);
     }
 
+    // Label column wraps inside its own width; the value column starts after it.
+    // Row height = tallest of the two, so long labels never overlap the answer.
     function InfoRow($label, $value) {
+        $labelW = 62;
+        $gap    = 4;
+        $valueW = 180 - $labelW - $gap;
+        $lh     = 5;
+        $label  = $this->utf8((string)$label);
+        $value  = $this->utf8((string)$value);
+
         $this->SetFont('Helvetica', 'B', 9);
-        $this->SetTextColor(107, 114, 128);
-        $this->Cell(55, 6, $this->utf8($label), 0, 0);
+        $nl = $this->NbLines($labelW, $label);
         $this->SetFont('Helvetica', '', 9);
-        $this->SetTextColor(31, 41, 55);
-        $this->MultiCell(125, 6, $this->utf8($value), 0);
-        $this->Ln(1);
+        $nv = $this->NbLines($valueW, $value);
+        $h  = max($nl, $nv, 1) * $lh;
+
+        // Keep the row together on one page when it fits on a page
+        $usable = $this->PageBreakTrigger - 50;
+        if ($this->GetY() + $h > $this->PageBreakTrigger && $h <= $usable) {
+            $this->AddPage();
+        }
+
+        $x = $this->lMargin;
+        $y = $this->GetY();
+
+        if ($h > $usable) {
+            // Extremely long answer: label first, value flows across pages below it
+            $this->SetFont('Helvetica', 'B', 9);
+            $this->SetTextColor(107, 114, 128);
+            $this->MultiCell(180, $lh, $label, 0, 'L');
+            $this->SetFont('Helvetica', '', 9);
+            $this->SetTextColor(31, 41, 55);
+            $this->MultiCell(180, $lh, $value, 0, 'L');
+        } else {
+            $this->SetFont('Helvetica', 'B', 9);
+            $this->SetTextColor(107, 114, 128);
+            $this->SetXY($x, $y);
+            $this->MultiCell($labelW, $lh, $label, 0, 'L');
+
+            $this->SetFont('Helvetica', '', 9);
+            $this->SetTextColor(31, 41, 55);
+            $this->SetXY($x + $labelW + $gap, $y);
+            $this->MultiCell($valueW, $lh, $value, 0, 'L');
+            $this->SetXY($x, $y + $h);
+        }
+
+        // Subtle row separator
+        $this->SetDrawColor(235, 236, 238);
+        $this->SetLineWidth(0.2);
+        $this->Line($x, $this->GetY() + 1, $x + 180, $this->GetY() + 1);
+        $this->SetY($this->GetY() + 2.5);
+    }
+
+    // Number of lines a MultiCell of width $w will take (current font)
+    function NbLines($w, $txt) {
+        $cw = $this->CurrentFont['cw'];
+        $wmax = ($w - 2 * $this->cMargin) * 1000 / $this->FontSize;
+        $s = str_replace("\r", '', (string)$txt);
+        $nb = strlen($s);
+        if ($nb > 0 && $s[$nb - 1] == "\n") $nb--;
+        $sep = -1; $i = 0; $j = 0; $l = 0; $nl = 1;
+        while ($i < $nb) {
+            $c = $s[$i];
+            if ($c == "\n") { $i++; $sep = -1; $j = $i; $l = 0; $nl++; continue; }
+            if ($c == ' ') $sep = $i;
+            $l += $cw[$c] ?? 0;
+            if ($l > $wmax) {
+                if ($sep == -1) { if ($i == $j) $i++; }
+                else $i = $sep + 1;
+                $sep = -1; $j = $i; $l = 0; $nl++;
+            } else {
+                $i++;
+            }
+        }
+        return $nl;
     }
 
     function utf8($str) {
         return iconv('UTF-8', 'ISO-8859-1//TRANSLIT//IGNORE', $str);
     }
 
+    // Summary box: one row per item (Reference / Service / Date); the service
+    // value wraps inside its column and the box height fits its content.
     function RefBadge($ref, $service, $date) {
-        $this->SetFont('Helvetica', 'B', 10);
-        $this->SetTextColor(31, 41, 55);
+        $x = 15; $w = 180; $pad = 3.5; $lh = 6; $labelW = 24;
+        $valueW = $w - 2 * $pad - $labelW;
+        $service = $this->utf8($service);
 
-        // Reference badge
+        $this->SetFont('Helvetica', 'B', 9);
+        $serviceLines = $this->NbLines($valueW, $service);
+        $h = 2 * $pad + $lh * (2 + $serviceLines);
+
+        $y0 = $this->GetY();
         $this->SetFillColor(237, 246, 240); // green-50
         $this->SetDrawColor(26, 58, 42);
-        $this->RoundedRect(15, $this->GetY(), 180, 22, 3, 'DF');
+        $this->SetLineWidth(0.3);
+        $this->RoundedRect($x, $y0, $w, $h, 3, 'DF');
 
-        $y = $this->GetY() + 3;
-        $this->SetXY(20, $y);
-        $this->SetFont('Helvetica', '', 9);
-        $this->SetTextColor(107, 114, 128);
-        $this->Cell(25, 6, 'Reference:', 0, 0);
-        $this->SetFont('Helvetica', 'B', 9);
-        $this->SetTextColor(26, 58, 42);
-        $this->Cell(40, 6, $this->utf8($ref), 0, 0);
+        $rows = [
+            ['Reference:', $this->utf8($ref), [26, 58, 42]],
+            ['Service:', $service, [31, 41, 55]],
+            ['Date:', $this->utf8($date), [31, 41, 55]],
+        ];
+        $y = $y0 + $pad;
+        foreach ($rows as [$label, $value, $color]) {
+            $this->SetXY($x + $pad, $y);
+            $this->SetFont('Helvetica', '', 9);
+            $this->SetTextColor(107, 114, 128);
+            $this->Cell($labelW, $lh, $label, 0, 0);
+            $this->SetFont('Helvetica', 'B', 9);
+            $this->SetTextColor($color[0], $color[1], $color[2]);
+            $this->MultiCell($valueW, $lh, $value, 0, 'L');
+            $y = $this->GetY();
+        }
 
-        $this->SetFont('Helvetica', '', 9);
-        $this->SetTextColor(107, 114, 128);
-        $this->Cell(20, 6, 'Service:', 0, 0);
-        $this->SetFont('Helvetica', 'B', 9);
-        $this->SetTextColor(31, 41, 55);
-        $this->Cell(55, 6, $this->utf8($service), 0, 0);
-
-        $this->SetFont('Helvetica', '', 9);
-        $this->SetTextColor(107, 114, 128);
-        $this->Cell(12, 6, 'Date:', 0, 0);
-        $this->SetFont('Helvetica', 'B', 9);
-        $this->SetTextColor(31, 41, 55);
-        $this->Cell(0, 6, $this->utf8($date), 0, 1);
-
-        $this->Ln(12);
+        $this->SetY($y0 + $h + 6);
     }
 
     function RoundedRect($x, $y, $w, $h, $r, $style = '') {
@@ -440,6 +639,7 @@ class K9PDF extends FPDF {
 
 $pdf = new K9PDF();
 $pdf->setLogoPath($LOGO_PATH);
+$pdf->SetMargins(15, 15, 15);
 $pdf->SetAutoPageBreak(true, 25);
 $pdf->AddPage();
 
@@ -454,31 +654,30 @@ $pdf->InfoRow('Email', $owner['email'] ?? '');
 $pdf->InfoRow('Address', $owner['address'] ?? '');
 $pdf->InfoRow('City', $owner['city'] ?? '');
 $pdf->InfoRow('Postal Code', $owner['postalCode'] ?? '');
-$pdf->InfoRow('Emergency Contact', $owner['emergencyContact'] ?? '');
+$pdf->InfoRow('Emergency Contact Name', $emergency_name);
+$pdf->InfoRow('Emergency Contact Phone', $emergency_phone);
 $pdf->Ln(5);
 
-// Dog info
-$pdf->SectionTitle('Dog Information');
-$pdf->InfoRow('Name', $dog['name'] ?? '');
-$pdf->InfoRow('Breed', $dog['breed'] ?? '');
-$pdf->InfoRow('Age', $dog['age'] ?? '');
-$pdf->InfoRow('Gender', $dog['gender'] ?? '');
-$pdf->InfoRow('Weight', $dog['weight'] ?? '');
-$pdf->InfoRow('Spayed / Neutered', $dog['spayedNeutered'] ?? '');
+// Pet info
+$pdf->SectionTitle('Pet Information');
+foreach (petRows($dog, $pet_type_display) as $label => $val) $pdf->InfoRow($label, $val);
 $pdf->Ln(5);
 
-// Additional dogs
+// Additional pets
 if (!empty($additional_dogs)) {
     foreach ($additional_dogs as $i => $aDog) {
-        $pdf->SectionTitle('Dog #' . ($i + 2) . ' Information');
-        $pdf->InfoRow('Name', $aDog['name'] ?? '');
-        $pdf->InfoRow('Breed', $aDog['breed'] ?? '');
-        $pdf->InfoRow('Age', $aDog['age'] ?? '');
-        $pdf->InfoRow('Gender', $aDog['gender'] ?? '');
-        $pdf->InfoRow('Weight', $aDog['weight'] ?? '');
-        $pdf->InfoRow('Spayed / Neutered', $aDog['spayedNeutered'] ?? '');
+        $pdf->SectionTitle('Pet #' . ($i + 2) . ' Information');
+        foreach (petRows($aDog) as $label => $val) $pdf->InfoRow($label, $val);
         $pdf->Ln(5);
     }
+}
+
+// Vet + feeding
+$care_rows = petCareRows($pet_care);
+if (!empty($care_rows)) {
+    $pdf->SectionTitle('Veterinarian & Feeding');
+    foreach ($care_rows as $label => $val) $pdf->InfoRow($label, $val);
+    $pdf->Ln(5);
 }
 
 // Service details (all selected services)
@@ -488,23 +687,15 @@ foreach ($all_service_data as $svc_id => $details) {
     $pdf->SectionTitle($svc_title);
     foreach ($details as $key => $val) {
         if ($val === '' || $val === false || (is_array($val) && empty($val))) continue;
+        if (isDuplicateVetField($key, $val, $pet_care)) continue;
         $label = getLabelForField($key, $current_label_map);
-        if (is_array($val)) {
-            $fval = implode(', ', $val);
-        } elseif ($val === true || $val === 'yes') {
-            $fval = 'Yes';
-        } elseif ($val === 'no') {
-            $fval = 'No';
-        } else {
-            $fval = $val;
-        }
-        $pdf->InfoRow($label, $fval);
+        $pdf->InfoRow($label, plainValue($val));
     }
     $pdf->Ln(5);
 }
 
-// Signature section
-$pdf->SectionTitle('Signature');
+// Signature section (title + 2 rows + signature box kept together)
+$pdf->SectionTitle('Signature', !empty($sig_image) ? 70 : 20);
 $pdf->InfoRow('Signed by', $sig_name);
 $pdf->InfoRow('Date', $sig_date);
 
@@ -531,6 +722,26 @@ if (!empty($sig_image) && strpos($sig_image, 'data:image/png;base64,') === 0) {
     @unlink($sig_tmp);
 }
 
+// Photo ID (embedded on its own page, scaled to fit)
+if ($id_image) {
+    $id_tmp = tempnam(sys_get_temp_dir(), 'k9id_');
+    file_put_contents($id_tmp, $id_image['bytes']);
+    try {
+        // Fit inside 140 x 110 mm, keeping the aspect ratio
+        $ratio = min(140 / $id_image['w'], 110 / $id_image['h']);
+        $iw = $id_image['w'] * $ratio;
+        $ih = $id_image['h'] * $ratio;
+        $pdf->Ln(4);
+        $pdf->SectionTitle('Photo ID', $ih + 4);
+        $pdf->Image($id_tmp, 15, $pdf->GetY() + 2, $iw, $ih, $id_image['ext'] === 'png' ? 'PNG' : 'JPG');
+        $pdf->SetY($pdf->GetY() + $ih + 6);
+    } catch (Throwable $e) {
+        // Unsupported PNG variant etc. — the image is still attached to the email
+        $pdf->InfoRow('Photo ID', 'Attached to the email as an image file.');
+    }
+    @unlink($id_tmp);
+}
+
 // Generate PDF string
 $pdf_content = $pdf->Output('S');
 $pdf_filename = "K9Movement_{$ref}.pdf";
@@ -546,36 +757,49 @@ $owner_phone = htmlspecialchars($owner['phone'] ?? '');
 $owner_address = htmlspecialchars($owner['address'] ?? '');
 $owner_city = htmlspecialchars($owner['city'] ?? '');
 $owner_postal = htmlspecialchars($owner['postalCode'] ?? '');
-$owner_emergency = htmlspecialchars($owner['emergencyContact'] ?? '');
+$owner_emergency_name  = htmlspecialchars($emergency_name);
+$owner_emergency_phone = htmlspecialchars($emergency_phone);
 $dog_name = htmlspecialchars($dog['name'] ?? '');
 $dog_breed = htmlspecialchars($dog['breed'] ?? '');
 $dog_age = htmlspecialchars($dog['age'] ?? '');
 $dog_gender = htmlspecialchars($dog['gender'] ?? '');
 $dog_weight = htmlspecialchars($dog['weight'] ?? '');
-$dog_spayed = htmlspecialchars($dog['spayedNeutered'] ?? '');
+$dog_spayed = htmlspecialchars(plainValue($dog['spayedNeutered'] ?? ''));
+$pet_rows_html = htmlRows(petRows($dog, $pet_type_display));
+$care_rows = petCareRows($pet_care);
+$pet_care_html = '';
+if (!empty($care_rows)) {
+    $care_rows_html = htmlRows($care_rows);
+    $pet_care_html = <<<CARE
+  <tr>
+    <td style="padding:25px 40px 0;">
+      <h2 style="margin:0 0 12px;font-size:15px;color:#1a3a2a;text-transform:uppercase;letter-spacing:1px;border-bottom:2px solid #1a3a2a;padding-bottom:8px;">Veterinarian &amp; Feeding</h2>
+      <table width="100%" cellpadding="0" cellspacing="0" style="font-size:14px;">
+        {$care_rows_html}
+      </table>
+    </td>
+  </tr>
+CARE;
+}
+$pet_word = $is_other ? 'pet' : 'dog';
+$pet_summary = $dog_name;
+$pet_summary_extra = $is_other
+    ? trim(($animal_type !== '' ? ucfirst($animal_type) : 'Pet') . ($dog_breed !== '' ? ', ' . $dog_breed : ''))
+    : $dog_breed;
+if ($pet_summary_extra !== '') $pet_summary .= ' (' . htmlspecialchars($pet_summary_extra) . ')';
 
 // ─── ADDITIONAL DOGS HTML ───
 $additional_dogs_html = '';
 if (!empty($additional_dogs)) {
     foreach ($additional_dogs as $i => $aDog) {
         $num = $i + 2;
-        $aN = htmlspecialchars($aDog['name'] ?? '');
-        $aB = htmlspecialchars($aDog['breed'] ?? '');
-        $aA = htmlspecialchars($aDog['age'] ?? '');
-        $aG = htmlspecialchars($aDog['gender'] ?? '');
-        $aW = htmlspecialchars($aDog['weight'] ?? '');
-        $aS = htmlspecialchars($aDog['spayedNeutered'] ?? '');
+        $aRows = htmlRows(petRows($aDog));
         $additional_dogs_html .= <<<ADOG
   <tr>
     <td style="padding:25px 40px 0;">
-      <h2 style="margin:0 0 12px;font-size:15px;color:#1a3a2a;text-transform:uppercase;letter-spacing:1px;border-bottom:2px solid #1a3a2a;padding-bottom:8px;">Dog #{$num} Information</h2>
+      <h2 style="margin:0 0 12px;font-size:15px;color:#1a3a2a;text-transform:uppercase;letter-spacing:1px;border-bottom:2px solid #1a3a2a;padding-bottom:8px;">Pet #{$num} Information</h2>
       <table width="100%" cellpadding="0" cellspacing="0" style="font-size:14px;">
-        <tr><td style="padding:8px 12px;font-weight:600;color:#374151;border-bottom:1px solid #f0f0f0;width:40%;">Name</td><td style="padding:8px 12px;color:#1f2937;border-bottom:1px solid #f0f0f0;">{$aN}</td></tr>
-        <tr><td style="padding:8px 12px;font-weight:600;color:#374151;border-bottom:1px solid #f0f0f0;">Breed</td><td style="padding:8px 12px;color:#1f2937;border-bottom:1px solid #f0f0f0;">{$aB}</td></tr>
-        <tr><td style="padding:8px 12px;font-weight:600;color:#374151;border-bottom:1px solid #f0f0f0;">Age</td><td style="padding:8px 12px;color:#1f2937;border-bottom:1px solid #f0f0f0;">{$aA}</td></tr>
-        <tr><td style="padding:8px 12px;font-weight:600;color:#374151;border-bottom:1px solid #f0f0f0;">Gender</td><td style="padding:8px 12px;color:#1f2937;border-bottom:1px solid #f0f0f0;">{$aG}</td></tr>
-        <tr><td style="padding:8px 12px;font-weight:600;color:#374151;border-bottom:1px solid #f0f0f0;">Weight</td><td style="padding:8px 12px;color:#1f2937;border-bottom:1px solid #f0f0f0;">{$aW}</td></tr>
-        <tr><td style="padding:8px 12px;font-weight:600;color:#374151;">Spayed / Neutered</td><td style="padding:8px 12px;color:#1f2937;">{$aS}</td></tr>
+        {$aRows}
       </table>
     </td>
   </tr>
@@ -630,27 +854,25 @@ $admin_html = <<<HTML
         <tr><td style="padding:8px 12px;font-weight:600;color:#374151;border-bottom:1px solid #f0f0f0;">Address</td><td style="padding:8px 12px;color:#1f2937;border-bottom:1px solid #f0f0f0;">{$owner_address}</td></tr>
         <tr><td style="padding:8px 12px;font-weight:600;color:#374151;border-bottom:1px solid #f0f0f0;">City</td><td style="padding:8px 12px;color:#1f2937;border-bottom:1px solid #f0f0f0;">{$owner_city}</td></tr>
         <tr><td style="padding:8px 12px;font-weight:600;color:#374151;border-bottom:1px solid #f0f0f0;">Postal Code</td><td style="padding:8px 12px;color:#1f2937;border-bottom:1px solid #f0f0f0;">{$owner_postal}</td></tr>
-        <tr><td style="padding:8px 12px;font-weight:600;color:#374151;">Emergency Contact</td><td style="padding:8px 12px;color:#1f2937;">{$owner_emergency}</td></tr>
+        <tr><td style="padding:8px 12px;font-weight:600;color:#374151;border-bottom:1px solid #f0f0f0;">Emergency Contact Name</td><td style="padding:8px 12px;color:#1f2937;border-bottom:1px solid #f0f0f0;">{$owner_emergency_name}</td></tr>
+        <tr><td style="padding:8px 12px;font-weight:600;color:#374151;">Emergency Contact Phone</td><td style="padding:8px 12px;color:#1f2937;">{$owner_emergency_phone}</td></tr>
       </table>
     </td>
   </tr>
 
-  <!-- DOG INFO -->
+  <!-- PET INFO -->
   <tr>
     <td style="padding:25px 40px 0;">
-      <h2 style="margin:0 0 12px;font-size:15px;color:#1a3a2a;text-transform:uppercase;letter-spacing:1px;border-bottom:2px solid #1a3a2a;padding-bottom:8px;">Dog Information</h2>
+      <h2 style="margin:0 0 12px;font-size:15px;color:#1a3a2a;text-transform:uppercase;letter-spacing:1px;border-bottom:2px solid #1a3a2a;padding-bottom:8px;">Pet Information</h2>
       <table width="100%" cellpadding="0" cellspacing="0" style="font-size:14px;">
-        <tr><td style="padding:8px 12px;font-weight:600;color:#374151;border-bottom:1px solid #f0f0f0;width:40%;">Name</td><td style="padding:8px 12px;color:#1f2937;border-bottom:1px solid #f0f0f0;">{$dog_name}</td></tr>
-        <tr><td style="padding:8px 12px;font-weight:600;color:#374151;border-bottom:1px solid #f0f0f0;">Breed</td><td style="padding:8px 12px;color:#1f2937;border-bottom:1px solid #f0f0f0;">{$dog_breed}</td></tr>
-        <tr><td style="padding:8px 12px;font-weight:600;color:#374151;border-bottom:1px solid #f0f0f0;">Age</td><td style="padding:8px 12px;color:#1f2937;border-bottom:1px solid #f0f0f0;">{$dog_age}</td></tr>
-        <tr><td style="padding:8px 12px;font-weight:600;color:#374151;border-bottom:1px solid #f0f0f0;">Gender</td><td style="padding:8px 12px;color:#1f2937;border-bottom:1px solid #f0f0f0;">{$dog_gender}</td></tr>
-        <tr><td style="padding:8px 12px;font-weight:600;color:#374151;border-bottom:1px solid #f0f0f0;">Weight</td><td style="padding:8px 12px;color:#1f2937;border-bottom:1px solid #f0f0f0;">{$dog_weight}</td></tr>
-        <tr><td style="padding:8px 12px;font-weight:600;color:#374151;">Spayed / Neutered</td><td style="padding:8px 12px;color:#1f2937;">{$dog_spayed}</td></tr>
+        {$pet_rows_html}
       </table>
     </td>
   </tr>
 
   {$additional_dogs_html}
+
+  {$pet_care_html}
 
   <!-- SERVICE DETAILS -->
   <tr>
@@ -679,7 +901,7 @@ $admin_html = <<<HTML
       <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;">
         <tr>
           <td style="padding:15px 20px;font-size:13px;color:#1e40af;">
-            &#128206; <strong>PDF attached</strong> — The complete application with the client's digital signature is attached to this email as a PDF document.
+            &#128206; <strong>PDF attached</strong> — The complete application with the client's digital signature and photo ID is attached to this email as a PDF document. The photo ID is also attached as a separate image.
           </td>
         </tr>
       </table>
@@ -748,8 +970,8 @@ $client_html = <<<HTML
                 <td style="padding:6px 0;color:#1f2937;">{$sig_date}</td>
               </tr>
               <tr>
-                <td style="padding:6px 0;color:#374151;font-weight:600;">Dog</td>
-                <td style="padding:6px 0;color:#1f2937;">{$dog_name} ({$dog_breed})</td>
+                <td style="padding:6px 0;color:#374151;font-weight:600;">Pet</td>
+                <td style="padding:6px 0;color:#1f2937;">{$pet_summary}</td>
               </tr>
             </table>
           </td>
@@ -773,7 +995,7 @@ $client_html = <<<HTML
         </tr>
         <tr>
           <td style="padding:8px 0;vertical-align:top;width:30px;"><span style="display:inline-block;width:24px;height:24px;background-color:#1a3a2a;color:#fff;border-radius:50%;text-align:center;line-height:24px;font-size:12px;font-weight:700;">3</span></td>
-          <td style="padding:8px 0 8px 8px;color:#374151;">We begin working with you and your dog!</td>
+          <td style="padding:8px 0 8px 8px;color:#374151;">We begin working with you and your {$pet_word}!</td>
         </tr>
       </table>
     </td>
@@ -848,6 +1070,16 @@ $admin_body .= "Content-Type: application/pdf; name=\"{$pdf_filename}\"\r\n";
 $admin_body .= "Content-Transfer-Encoding: base64\r\n";
 $admin_body .= "Content-Disposition: attachment; filename=\"{$pdf_filename}\"\r\n\r\n";
 $admin_body .= chunk_split(base64_encode($pdf_content)) . "\r\n";
+
+// Photo ID attachment
+if ($id_image) {
+    $id_filename = "K9Movement_{$ref}_PhotoID.{$id_image['ext']}";
+    $admin_body .= "--{$boundary_mixed}\r\n";
+    $admin_body .= "Content-Type: {$id_image['mime']}; name=\"{$id_filename}\"\r\n";
+    $admin_body .= "Content-Transfer-Encoding: base64\r\n";
+    $admin_body .= "Content-Disposition: attachment; filename=\"{$id_filename}\"\r\n\r\n";
+    $admin_body .= chunk_split(base64_encode($id_image['bytes'])) . "\r\n";
+}
 
 $admin_body .= "--{$boundary_mixed}--";
 

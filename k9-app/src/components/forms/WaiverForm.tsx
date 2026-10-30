@@ -1,23 +1,24 @@
 import { Input } from '../ui/Input'
 import type { FormComponentProps } from '../../types'
 
-export function WaiverForm({ data, onChange, errors, onClearError }: FormComponentProps) {
+export function WaiverForm({ data, onChange, errors, onClearError, petType }: FormComponentProps) {
+  const isDog = petType !== 'other'
   const u = (field: string) => (e: any) => { onChange(field, e.target ? e.target.value : e); onClearError?.(field) }
 
   return (
     <>
       <Input
-        label="Dog(s) Name(s)"
+        label={isDog ? 'Dog(s) Name(s)' : 'Pet(s) Name(s)'}
         required
         value={data.dogNames}
         onChange={u('dogNames')}
-        placeholder="List all dogs covered by this waiver"
+        placeholder={isDog ? 'List all dogs covered by this waiver' : 'List all pets covered by this waiver'}
         error={errors.dogNames}
       />
 
       <div className="legal-scroll bg-warm-50 border border-warm-200 rounded-xl p-6 max-h-[400px] overflow-y-auto text-[0.85rem] leading-[1.7] text-warm-600 mb-5 max-sm:max-h-[280px] max-sm:p-4">
         <h3 className="font-[var(--font-display)] text-[1.2rem] font-bold text-forest-800 mb-3">
-          Dog Walking / Pet Sitting / Boarding &amp; Waiver Form
+          {isDog ? 'Dog Walking / Pet Sitting / Boarding & Waiver Form' : 'Pet Sitting / Boarding & Waiver Form'}
         </h3>
 
         <p>I understand that I am solely responsible for any harm caused by my dog(s) while my dog(s) is/are attending walks, pet sitting, boarding, training or any activities with K9 MOVEMENT.</p>
